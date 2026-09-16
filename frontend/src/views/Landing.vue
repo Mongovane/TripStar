@@ -235,7 +235,11 @@
           <div v-show="loading" class="sa-stepper">
             <div class="sa-stepper-head">
               <h2 class="sa-stepper-title">{{ t('home.loading.planCode', { code: planCode }) }}</h2>
-              <p class="sa-stepper-sub">{{ t('home.loading.preparing') }}</p>
+              <div class="sa-stepper-metrics">
+                <span class="sa-metric"><span class="sa-metric-k">{{ t('home.loading.elapsed') }}</span> {{ elapsedLabel }}</span>
+                <span class="sa-metric-sep">·</span>
+                <span class="sa-metric sa-metric-pct">{{ displayPercent }}%</span>
+              </div>
             </div>
 
             <div class="sa-constellation">
@@ -279,9 +283,32 @@
             </div>
 
             <div class="sa-stepper-foot">
-              <h3>{{ loadingStatus }}</h3>
-              <p v-if="loadingProgress < 100">{{ t('home.loading.workingTogether') }}</p>
-              <p v-else>{{ t('home.loading.donePrepare') }}</p>
+              <h3>{{ loadingProgress >= 100 ? t('home.loading.done') : loadingStatus }}</h3>
+              <p class="sa-foot-sub">{{ loadingProgress < 100 ? t('home.loading.workingTogether') : t('home.loading.donePrepare') }}</p>
+            </div>
+
+            <!-- 实时活动日志：把后端每一步的真实进度事件累积展示 -->
+            <div class="sa-activity">
+              <div class="sa-activity-head">
+                <span class="sa-activity-title">{{ t('home.loading.activityTitle') }}</span>
+                <span class="sa-activity-dot" :class="{ live: loadingProgress < 100 }"></span>
+              </div>
+              <ul class="sa-log" ref="logRef">
+                <li
+                  v-for="line in activityLog"
+                  :key="line.id"
+                  class="sa-log-line"
+                  :class="{ done: line.done, err: line.error, active: !line.done && !line.error }"
+                >
+                  <span class="sa-log-ic">
+                    <svg v-if="line.done" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 6.5l2.5 2.5 5.5-6"/></svg>
+                    <svg v-else-if="line.error" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l6 6M9 3l-6 6"/></svg>
+                    <i v-else class="sa-log-spin"></i>
+                  </span>
+                  <span class="sa-log-tx">{{ line.text }}</span>
+                </li>
+              </ul>
+              <p v-if="isPlanningLong" class="sa-plateau">{{ t('home.loading.planningLong') }}</p>
             </div>
           </div>
         </div>
@@ -347,7 +374,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
@@ -381,6 +408,63 @@ const historyPlans = ref<TripHistoryItem[]>([])
 
 // 星座连线的点亮比例，跟随后端进度推进（装饰用途）
 const constellationFill = computed(() => `${Math.min(Math.max(loadingProgress.value, 0), 100)}%`)
+
+// ── 实时进度：活动日志 + 计时 + 平滑百分比 ──
+type LogLine = { id: number; text: string; done: boolean; error: boolean }
+const activityLog = ref<LogLine[]>([])
+const logRef = ref<HTMLElement | null>(null)
+const elapsed = ref(0) // 秒
+const smoothPercent = ref(0) // 展示用百分比（可在停顿期缓慢蠕动）
+let logSeq = 0
+let elapsedTimer: ReturnType<typeof setInterval> | null = null
+let tickTimer: ReturnType<typeof setInterval> | null = null
+
+const elapsedLabel = computed(() => {
+  const m = Math.floor(elapsed.value / 60)
+  const s = elapsed.value % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+})
+const displayPercent = computed(() => Math.round(smoothPercent.value))
+// 后端在“生成行程”阶段会停在 85% 较久：这里给一句诚实的耐心提示
+const isPlanningLong = computed(() => loading.value && loadingProgress.value >= 85 && loadingProgress.value < 100)
+
+const pushLog = (text: string, kind: 'normal' | 'error' = 'normal') => {
+  if (!text) return
+  const last = activityLog.value[activityLog.value.length - 1]
+  if (last) {
+    if (last.text === text && kind === 'normal') return // 同一条消息，跳过
+    last.done = true // 上一步标记完成
+  }
+  activityLog.value.push({ id: ++logSeq, text, done: false, error: kind === 'error' })
+}
+
+const startProgressTimers = () => {
+  stopProgressTimers()
+  elapsedTimer = setInterval(() => { elapsed.value += 1 }, 1000)
+  tickTimer = setInterval(() => {
+    const real = loadingProgress.value
+    if (real >= 100) { smoothPercent.value = 100; return }
+    if (real > smoothPercent.value) { smoothPercent.value = real; return }
+    // 停顿期：向上缓慢蠕动，但封顶 96%，绝不谎报完成
+    const cap = real >= 85 ? 96 : Math.min(real + 4, 96)
+    if (smoothPercent.value < cap) {
+      smoothPercent.value = Math.min(cap, smoothPercent.value + (real >= 85 ? 0.7 : 0.35))
+    }
+  }, 700)
+}
+const stopProgressTimers = () => {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null }
+  if (tickTimer) { clearInterval(tickTimer); tickTimer = null }
+}
+
+// 新日志到达时自动滚到底部
+watch(() => activityLog.value.length, () => {
+  nextTick(() => {
+    if (logRef.value) logRef.value.scrollTop = logRef.value.scrollHeight
+  })
+})
+
+onUnmounted(stopProgressTimers)
 
 const getStageStatusText = (stage: TripTaskEvent['stage']) => {
   if (stage === 'submitted' || stage === 'initializing') return t('home.loading.initializing')
@@ -500,6 +584,12 @@ const handleSubmit = async () => {
   loadingProgress.value = 5
   loadingStatus.value = t('home.loading.initializing')
   planCode.value = ''
+  activityLog.value = []
+  elapsed.value = 0
+  smoothPercent.value = 5
+  logSeq = 0
+  pushLog(t('home.loading.initializing'))
+  startProgressTimers()
 
   try {
     sessionStorage.removeItem('tripPlan')
@@ -534,6 +624,7 @@ const handleSubmit = async () => {
           loadingProgress.value = Math.max(0, Math.min(100, event.progress))
         }
         loadingStatus.value = event.message || getStageStatusText(event.stage)
+        pushLog(loadingStatus.value)
       }
     })
 
@@ -541,6 +632,9 @@ const handleSubmit = async () => {
     loadingStatus.value = t('home.loading.done')
 
     if (response.success && response.data) {
+      pushLog(t('home.loading.finished'))
+      const last = activityLog.value[activityLog.value.length - 1]
+      if (last) last.done = true
       const planId = response.plan_id || planCode.value
       sessionStorage.setItem('tripPlan', JSON.stringify(response.data))
       if (response.graph_data) sessionStorage.setItem('graphData', JSON.stringify(response.graph_data))
@@ -564,12 +658,17 @@ const handleSubmit = async () => {
     sessionStorage.removeItem('graphData')
     sessionStorage.removeItem('planId')
     message.error(error.message || t('home.messages.generateRetry'))
+    pushLog(error.message || t('home.loading.failed'), 'error')
   } finally {
+    stopProgressTimers()
     setTimeout(() => {
       loading.value = false
       loadingProgress.value = 0
       loadingStatus.value = ''
       panelHeight.value = 'auto'
+      activityLog.value = []
+      elapsed.value = 0
+      smoothPercent.value = 0
     }, 1000)
   }
 }
@@ -791,6 +890,33 @@ const handleSubmit = async () => {
 .sa-stepper-foot { text-align: center; margin-top: 28px; }
 .sa-stepper-foot h3 { margin: 0; font-family: var(--serif); font-size: 1.2rem; font-weight: 500; color: var(--ink); }
 .sa-stepper-foot p { margin: 6px 0 0; font-size: 13px; color: var(--ink-soft); }
+.sa-foot-sub { min-height: 18px; }
+
+/* metrics row: elapsed + percent */
+.sa-stepper-metrics { margin-top: 8px; display: inline-flex; align-items: baseline; gap: 8px; font-family: var(--mono); font-size: 13px; color: var(--ink-soft); }
+.sa-metric-k { color: var(--ink-faint); font-size: 11px; }
+.sa-metric-sep { color: var(--ink-faint); }
+.sa-metric-pct { color: var(--rust); font-size: 15px; }
+
+/* live activity log */
+.sa-activity { max-width: 520px; margin: 22px auto 6px; border: 1px solid var(--line); background: var(--card); }
+.sa-activity-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line-2); }
+.sa-activity-title { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.sa-activity-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); }
+.sa-activity-dot.live { background: var(--rust); animation: sa-pulse 1.4s ease-in-out infinite; }
+@keyframes sa-pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(192,86,42,.4); } 50% { opacity: .5; box-shadow: 0 0 0 5px rgba(192,86,42,0); } }
+.sa-log { list-style: none; margin: 0; padding: 8px 14px; max-height: 168px; overflow-y: auto; }
+.sa-log-line { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; font-size: 13px; line-height: 1.45; }
+.sa-log-ic { flex: none; width: 16px; height: 16px; margin-top: 1px; display: grid; place-items: center; }
+.sa-log-line.done { color: var(--ink-soft); }
+.sa-log-line.done .sa-log-ic { color: var(--brass); }
+.sa-log-line.active { color: var(--ink); font-weight: 500; }
+.sa-log-line.active .sa-log-ic { color: var(--rust); }
+.sa-log-line.err { color: var(--rust-deep); }
+.sa-log-line.err .sa-log-ic { color: var(--rust-deep); }
+.sa-log-spin { width: 11px; height: 11px; border: 2px solid rgba(192,86,42,.25); border-top-color: var(--rust); border-radius: 50%; animation: sa-sp .7s linear infinite; }
+.sa-plateau { margin: 0; padding: 10px 14px; border-top: 1px dashed var(--line-2); font-size: 12.5px; color: var(--teal); background: color-mix(in srgb, var(--teal) 5%, transparent); }
+@media (prefers-reduced-motion: reduce) { .sa-activity-dot.live, .sa-log-spin { animation: none; } }
 
 /* ── History ── */
 .sa-history { padding: 48px 0 64px; }

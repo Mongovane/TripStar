@@ -139,7 +139,12 @@
       "preparing": "请稍等，正在为您准备...",
       "workingTogether": "AI 正在齐心协力为您定制旅程...",
       "donePrepare": "完成！准备出发...",
-      "done": "完成！"
+      "done": "完成！",
+      "activityTitle": "实时动态",
+      "elapsed": "已用时",
+      "planningLong": "正在编排完整行程，这一步最耗时，请再稍候…",
+      "finished": "全部就绪，正在打开你的行程…",
+      "failed": "生成中断"
     },
     "messages": {
       "travelDaysTooLong": "旅行天数不能超过 30 天",

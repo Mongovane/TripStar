@@ -139,7 +139,12 @@
       "preparing": "Please wait, we are preparing for you...",
       "workingTogether": "Our AI agents are working together to craft your journey...",
       "donePrepare": "Done! Prepare for departure...",
-      "done": "Done!"
+      "done": "Done!",
+      "activityTitle": "Live activity",
+      "elapsed": "Elapsed",
+      "planningLong": "Arranging the full itinerary — the longest step, hang tight…",
+      "finished": "All set — opening your itinerary…",
+      "failed": "Generation interrupted"
     },
     "messages": {
       "travelDaysTooLong": "Trip duration cannot exceed 30 days",

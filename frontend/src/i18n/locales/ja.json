@@ -139,7 +139,12 @@
       "preparing": "少々お待ちください。準備中です...",
       "workingTogether": "AIエージェントが協力して旅程を作成しています...",
       "donePrepare": "完了！出発の準備をしてください...",
-      "done": "完了！"
+      "done": "完了！",
+      "activityTitle": "リアルタイムの動き",
+      "elapsed": "経過時間",
+      "planningLong": "旅程全体を編成中 — 最も時間のかかるステップです。もう少々お待ちください…",
+      "finished": "準備完了 — 旅程を開いています…",
+      "failed": "生成が中断されました"
     },
     "messages": {
       "travelDaysTooLong": "旅行日数は 30 日以内にしてください",
