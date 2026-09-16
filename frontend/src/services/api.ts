@@ -104,6 +104,21 @@ export const setRuntimeMapJsKey = (value: string): string => {
   return normalized
 }
 
+const RUNTIME_AMAP_SECURITY_JS_CODE_STORAGE_KEY = 'tripstar.runtime.amap_security_js_code'
+
+export const getRuntimeMapSecurityCode = (): string => {
+  if (typeof window === 'undefined') return ''
+  return normalizeText(window.localStorage.getItem(RUNTIME_AMAP_SECURITY_JS_CODE_STORAGE_KEY))
+}
+
+export const setRuntimeMapSecurityCode = (value: string): string => {
+  const normalized = normalizeText(value)
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(RUNTIME_AMAP_SECURITY_JS_CODE_STORAGE_KEY, normalized)
+  }
+  return normalized
+}
+
 export const getRuntimeGoogleMapsApiKey = (): string => {
   if (typeof window === 'undefined') return ''
   return normalizeText(window.localStorage.getItem(RUNTIME_GOOGLE_MAPS_API_KEY_STORAGE_KEY))
@@ -236,6 +251,7 @@ export async function getRuntimeSettings(): Promise<RuntimeSettings> {
     api_base_url: apiBaseUrl,
     ...backend,
     vite_amap_web_js_key: mapJsKey,
+    amap_security_js_code: getRuntimeMapSecurityCode(),
   }
 }
 
@@ -265,6 +281,7 @@ export async function saveRuntimeSettings(settings: RuntimeSettings): Promise<Ru
   const apiBaseUrl = setRuntimeApiBaseUrl(targetApiBaseUrl)
   const mapJsKey = setRuntimeMapJsKey(settings.vite_amap_web_js_key || backend.vite_amap_web_js_key)
   setRuntimeGoogleMapsApiKey(settings.google_maps_api_key || backend.google_maps_api_key)
+  const mapSecurityCode = setRuntimeMapSecurityCode(settings.amap_security_js_code)
 
   emitRuntimeSettingsUpdated()
 
@@ -272,6 +289,7 @@ export async function saveRuntimeSettings(settings: RuntimeSettings): Promise<Ru
     api_base_url: apiBaseUrl,
     ...backend,
     vite_amap_web_js_key: mapJsKey || backend.vite_amap_web_js_key,
+    amap_security_js_code: mapSecurityCode,
   }
 }
 

@@ -96,6 +96,13 @@
 
               <a-form-item>
                 <template #label>
+                  <span class="field-label">{{ t('settings.labels.amapSecurityCode') }}</span>
+                </template>
+                <a-input-password v-model:value="settingsForm.amap_security_js_code" allow-clear />
+              </a-form-item>
+
+              <a-form-item>
+                <template #label>
                   <span class="field-label">{{ t('settings.labels.amapWebKey') }}</span>
                 </template>
                 <a-input-password v-model:value="settingsForm.vite_amap_web_key" allow-clear />
@@ -186,6 +193,7 @@ const settingsForm = reactive<RuntimeSettings>({
   api_base_url: '',
   vite_amap_web_key: '',
   vite_amap_web_js_key: '',
+  amap_security_js_code: '',
   google_maps_api_key: '',
   google_maps_proxy: '',
   xhs_cookie: '',
@@ -211,6 +219,7 @@ const applyRuntimeSettings = (settings: RuntimeSettings) => {
   settingsForm.api_base_url = settings.api_base_url || ''
   settingsForm.vite_amap_web_key = settings.vite_amap_web_key || ''
   settingsForm.vite_amap_web_js_key = settings.vite_amap_web_js_key || ''
+  settingsForm.amap_security_js_code = settings.amap_security_js_code || ''
   settingsForm.google_maps_api_key = settings.google_maps_api_key || ''
   settingsForm.google_maps_proxy = settings.google_maps_proxy || ''
   settingsForm.xhs_cookie = settings.xhs_cookie || ''
@@ -239,6 +248,7 @@ const saveSettingsNow = async () => {
       api_base_url: settingsForm.api_base_url,
       vite_amap_web_key: settingsForm.vite_amap_web_key,
       vite_amap_web_js_key: settingsForm.vite_amap_web_js_key,
+      amap_security_js_code: settingsForm.amap_security_js_code,
       google_maps_api_key: settingsForm.google_maps_api_key,
       google_maps_proxy: settingsForm.google_maps_proxy,
       xhs_cookie: settingsForm.xhs_cookie,

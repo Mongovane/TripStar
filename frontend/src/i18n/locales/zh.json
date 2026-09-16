@@ -46,7 +46,8 @@
       "openaiBaseUrl": "OpenAI 兼容格式 Base URL",
       "openaiModel": "OpenAI 兼容格式 Model",
       "openaiApiKey": "OpenAI 兼容格式 API Key",
-      "xhsCookie": "小红书 Cookie"
+      "xhsCookie": "小红书 Cookie",
+      "amapSecurityCode": "高德地图 安全密钥 (JSCode)"
     },
     "placeholders": {
       "apiBaseUrl": "例如：http://localhost:8000",

@@ -46,7 +46,8 @@
       "openaiBaseUrl": "OpenAI-Compatible Base URL",
       "openaiModel": "OpenAI-Compatible Model",
       "openaiApiKey": "OpenAI-Compatible API Key",
-      "xhsCookie": "Xiaohongshu Cookie"
+      "xhsCookie": "Xiaohongshu Cookie",
+      "amapSecurityCode": "Amap Security Code (JSCode)"
     },
     "placeholders": {
       "apiBaseUrl": "e.g. http://localhost:8000",

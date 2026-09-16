@@ -589,6 +589,7 @@ import type { TripPlan, TripPlanResponse, KnowledgeGraphData, GraphCategory, Att
 import {
   getRuntimeApiBaseUrl,
   getRuntimeMapJsKey,
+  getRuntimeMapSecurityCode,
   getRuntimeGoogleMapsApiKey,
   setRuntimeGoogleMapsApiKey,
   getBackendRuntimeSettings,
@@ -1826,7 +1827,11 @@ const loadAttractionPhotos = async () => {
         )
         const data = await response.json()
         if (data.success && data.data.photo_url) {
-          attractionPhotos.value[name] = data.data.photo_url
+          const raw = data.data.photo_url as string
+          // 小红书图片有 Referer 防盗链，经后端图片代理加载以规避 403
+          attractionPhotos.value[name] = /^https?:\/\//i.test(raw)
+            ? `${apiBase}/api/poi/image-proxy?url=${encodeURIComponent(raw)}`
+            : raw
         }
       } catch (err) {
         console.error(`获取${name}图片失败:`, err)
@@ -2810,6 +2815,11 @@ const initAMap = async () => {
     if (!mapJsKey) {
       message.warning('请先在设置中配置高德地图 JS Key')
       return
+    }
+    // 运行时注入高德安全密钥（与 JS Key 成对使用）；未配置则沿用构建期注入的值
+    const mapSecurityCode = getRuntimeMapSecurityCode()
+    if (mapSecurityCode) {
+      ;(window as any)._AMapSecurityConfig = { securityJsCode: mapSecurityCode }
     }
     const AMap = await AMapLoader.load({
       key: mapJsKey,  // 高德地图Web端(JS API) Key

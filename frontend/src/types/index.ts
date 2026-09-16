@@ -159,6 +159,7 @@ export interface RuntimeSettings {
   api_base_url: string
   vite_amap_web_key: string
   vite_amap_web_js_key: string
+  amap_security_js_code: string
   google_maps_api_key: string
   google_maps_proxy: string
   xhs_cookie: string

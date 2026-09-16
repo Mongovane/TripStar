@@ -46,7 +46,8 @@
       "openaiBaseUrl": "OpenAI 格式 Base URL",
       "openaiModel": "OpenAI 格式 Model",
       "openaiApiKey": "OpenAI 格式 API Key",
-      "xhsCookie": "小紅書 Cookie"
+      "xhsCookie": "小紅書 Cookie",
+      "amapSecurityCode": "高德地図 セキュリティコード (JSCode)"
     },
     "placeholders": {
       "apiBaseUrl": "例: http://localhost:8000",
