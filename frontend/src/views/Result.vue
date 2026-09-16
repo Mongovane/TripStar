@@ -2983,9 +2983,24 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 /* ===== Landing 同款视觉基底 - 结果页 ===== */
 
 .result-container {
+  /* ===== Star Almanac 暖色令牌（结果页外壳）===== */
+  --paper: #F4EEE1;
+  --paper-2: #EBE1CE;
+  --card: #FBF7EE;
+  --ink: #241D18;
+  --ink-soft: #6B5C4C;
+  --ink-faint: #A7967D;
+  --line: rgba(36, 29, 24, 0.14);
+  --line-2: rgba(36, 29, 24, 0.08);
+  --rust: #C0562A;
+  --rust-deep: #95401A;
+  --brass: #D9A441;
+
   min-height: 100vh;
-  background: linear-gradient(180deg, #0d171d 0%, #142430 58%, #0f1a22 100%);
-  color: #ecf3fa;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(192, 86, 42, 0.06), transparent 70%),
+    var(--paper);
+  color: var(--ink);
   position: relative;
   isolation: isolate;
   overflow-x: hidden;
@@ -2996,7 +3011,10 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
   inset: 0% 0 -1px 0;
   z-index: 0;
   pointer-events: none;
-  background: rgba(6, 14, 20, 0.72);
+  background:
+    radial-gradient(circle, rgba(36, 29, 24, 0.045) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.6;
 }
 
 .lower-shade::before {
@@ -3006,7 +3024,7 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
   right: 0;
   top: -28px;
   height: 28px;
-  background: linear-gradient(to bottom, rgba(6, 14, 20, 0), rgba(6, 14, 20, 0.92));
+  background: linear-gradient(to bottom, rgba(244, 238, 225, 0), rgba(244, 238, 225, 0.92));
 }
 
 .result-main {
@@ -3019,11 +3037,10 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
   max-width: 1400px;
   margin: 0 auto;
   display: block;
-  border: 1.2px solid rgba(236, 243, 250, 0.2);
-  border-radius: 22px;
-  background: rgba(12, 23, 32, 0.56);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 24px 80px rgba(4, 11, 18, 0.52);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--card);
+  box-shadow: 0 24px 60px -34px rgba(36, 29, 24, 0.4);
   padding: 20px;
 }
 
@@ -3045,29 +3062,29 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 .top-switch-menu {
   width: 100%;
   min-width: 0;
-  border-bottom: 1px solid rgba(236, 243, 250, 0.16) !important;
+  border-bottom: 1px solid var(--line) !important;
   background: transparent !important;
 }
 
 .top-switch-menu :deep(.ant-menu-item) {
-  color: rgba(232, 239, 247, 0.75) !important;
+  color: var(--ink-soft) !important;
   border-radius: 10px 10px 0 0;
   margin-right: 4px !important;
   transition: all 0.2s ease;
 }
 
 .top-switch-menu :deep(.ant-menu-item:hover) {
-  color: rgba(236, 243, 250, 0.95) !important;
+  color: var(--ink) !important;
 }
 
 .top-switch-menu :deep(.ant-menu-item-selected) {
-  color: #ffe3d6 !important;
+  color: var(--rust) !important;
 }
 
 .top-switch-menu :deep(.ant-menu-item-selected::after),
 .top-switch-menu :deep(.ant-menu-item-active::after),
 .top-switch-menu :deep(.ant-menu-item:hover::after) {
-  border-bottom-color: #d76e42 !important;
+  border-bottom-color: var(--rust) !important;
 }
 
 .top-switch-menu :deep(.ant-menu-overflow) {
@@ -3081,38 +3098,47 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 }
 
 .top-switch-actions :deep(.ant-btn-default) {
-  border: 1.2px solid rgba(236, 243, 250, 0.24) !important;
-  background: rgba(12, 23, 32, 0.56) !important;
-  color: #ecf3fa !important;
-  border-radius: 999px !important;
+  border: 1px solid var(--line) !important;
+  background: var(--paper-2) !important;
+  color: var(--ink) !important;
+  border-radius: 2px !important;
   height: 34px !important;
-  padding: 0 12px !important;
+  padding: 0 14px !important;
   font-size: 12px !important;
   font-weight: 600;
   letter-spacing: 0.04em;
 }
 
+.top-switch-actions :deep(.ant-btn-default:hover) {
+  border-color: var(--rust) !important;
+  color: var(--rust) !important;
+}
+
 .top-switch-actions :deep(.ant-btn-primary) {
-  border: 1.2px solid rgba(215, 110, 66, 0.5) !important;
-  background: rgba(215, 110, 66, 0.24) !important;
-  color: #ffe3d6 !important;
-  border-radius: 999px !important;
+  border: 1px solid var(--rust) !important;
+  background: var(--rust) !important;
+  color: var(--paper) !important;
+  border-radius: 2px !important;
   height: 34px !important;
-  padding: 0 12px !important;
+  padding: 0 14px !important;
   font-size: 12px !important;
   font-weight: 600;
   letter-spacing: 0.04em;
   box-shadow: none !important;
 }
 
+.top-switch-actions :deep(.ant-btn-primary:hover) {
+  background: var(--rust-deep) !important;
+  border-color: var(--rust-deep) !important;
+}
+
 .empty-state-panel {
   max-width: 900px;
   margin: 0 auto;
-  border: 1.2px solid rgba(236, 243, 250, 0.2);
-  border-radius: 22px;
-  background: rgba(12, 23, 32, 0.56);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 24px 80px rgba(4, 11, 18, 0.52);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--card);
+  box-shadow: 0 24px 60px -34px rgba(36, 29, 24, 0.4);
   padding: 44px 20px;
   text-align: center;
 }
