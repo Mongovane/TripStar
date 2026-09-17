@@ -3119,7 +3119,7 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 
 .reservation-tips {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--rust-deep);
   line-height: 1.5;
 }
 
@@ -3497,7 +3497,7 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 }
 
 .today-info-item .wea-title {
-  color: rgba(235, 243, 252, 0.809);
+  color: var(--ink);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-size: 17px;
@@ -3506,7 +3506,7 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 }
 
 .today-info-item .value {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
   text-align: right;
   font-size: 16px;
 }
@@ -3535,22 +3535,22 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
   border-radius: 12px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(238, 245, 253, 0.78);
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  color: var(--ink-soft);
 }
 
 .week-list > li:hover {
   transform: translateY(-3px);
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(5, 12, 20, 0.9);
-  box-shadow: 0 10px 28px rgba(9, 15, 22, 0.32);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 10px 28px -14px rgba(36, 29, 24, 0.4);
 }
 
 .week-list > li.active {
-  background: rgba(255, 255, 255, 0.9);
-  color: rgba(9, 14, 24, 0.92);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  background: var(--rust);
+  color: var(--paper);
+  box-shadow: 0 8px 24px -12px rgba(192, 86, 42, 0.5);
 }
 
 .week-list > li .day-icon {
@@ -3705,11 +3705,11 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 }
 
 .hotel-card :deep(.ant-descriptions-item-label) {
-  color: rgba(255, 255, 255, 0.5) !important;
+  color: var(--ink-soft) !important;
 }
 
 .hotel-card :deep(.ant-descriptions-item-content) {
-  color: rgba(255, 255, 255, 0.8) !important;
+  color: var(--ink) !important;
 }
 
 /* 顶部信息区布局 */
@@ -4278,38 +4278,38 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 }
 
 :deep(.ant-descriptions-bordered .ant-descriptions-item-label) {
-  background: rgba(255, 255, 255, 0.04) !important;
-  color: rgba(255, 255, 255, 0.5) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
+  background: var(--paper-2) !important;
+  color: var(--ink-soft) !important;
+  border-color: var(--line) !important;
 }
 
 :deep(.ant-descriptions-bordered .ant-descriptions-item-content) {
   background: transparent !important;
-  color: rgba(255, 255, 255, 0.8) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
 }
 
 :deep(.ant-descriptions-item-label) {
-  color: rgba(255, 255, 255, 0.5) !important;
+  color: var(--ink-soft) !important;
 }
 
 :deep(.ant-descriptions-item-content) {
-  color: rgba(255, 255, 255, 0.8) !important;
+  color: var(--ink) !important;
 }
 
 /* Divider 暗色 */
 :deep(.ant-divider) {
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  color: rgba(255, 255, 255, 0.6) !important;
+  border-color: var(--line) !important;
+  color: var(--ink-soft) !important;
 }
 
 :deep(.ant-divider-inner-text) {
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: var(--ink-soft) !important;
 }
 
 /* Empty 暗色 */
 :deep(.ant-empty-description) {
-  color: rgba(255, 255, 255, 0.4) !important;
+  color: var(--ink-faint) !important;
 }
 
 /* 景点卡片样式 */
