@@ -558,7 +558,8 @@
       </div>
     </a-back-top>
 
-    <AIChat :trip-plan="tripPlan" />
+    <AIChat ref="aiChatRef" :trip-plan="tripPlan" hide-trigger />
+    <TravelBuddy @open="openBuddyChat" />
   </div>
 </template>
 
@@ -574,6 +575,7 @@ import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
 import OverviewOrrery from '@/components/OverviewOrrery.vue'
 import AIChat from '@/components/AIChat.vue'
+import TravelBuddy from '@/components/TravelBuddy.vue'
 import type { TripPlan, TripPlanResponse, KnowledgeGraphData, GraphCategory, Attraction, Meal, Hotel, WeatherInfo } from '@/types'
 import {
   getRuntimeApiBaseUrl,
@@ -1259,6 +1261,10 @@ const goToDayFromOverview = (dayArrayIndex: number) => {
 
 // 星盘卡片用图：返回该景点的图片地址（后端 name 代理），无图时组件内回退占位
 const orreryImage = (name: string): string => attractionPhotos.value[name] || ''
+
+// 行走小鸭：轻点它 → 打开 AI 聊天
+const aiChatRef = ref<{ open: () => void } | null>(null)
+const openBuddyChat = () => { aiChatRef.value?.open() }
 
 // 切换编辑模式
 const toggleEditMode = () => {

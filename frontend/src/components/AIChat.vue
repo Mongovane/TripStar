@@ -1,5 +1,5 @@
 <template>
-  <div class="ai-chat-floating">
+  <div class="ai-chat-floating" :class="{ 'hide-trigger': hideTrigger }">
     <div class="container-ai-input">
       <div v-for="index in 15" :key="`chat-area-${index}`" class="area"></div>
       <div class="container-wrap" :class="{ open: chatOpen }">
@@ -160,6 +160,7 @@ import { getRuntimeApiBaseUrl } from '@/services/api'
 
 const props = defineProps<{
   tripPlan: TripPlan | null
+  hideTrigger?: boolean
 }>()
 
 const { t } = useI18n()
@@ -206,6 +207,8 @@ const openChatPanel = () => {
     chatOpen.value = true
   }
 }
+
+defineExpose({ open: openChatPanel })
 
 const closeChatPanel = () => {
   chatOpen.value = false
@@ -255,6 +258,12 @@ const sendChatMessage = async () => {
   bottom: 8px;
   z-index: 1000;
   transform: scale(0.3);
+}
+
+/* 由行走小鸭触发时：关闭态隐藏原光球，打开态正常显示聊天面板 */
+.ai-chat-floating.hide-trigger .container-wrap:not(.open) {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .container-ai-input {
