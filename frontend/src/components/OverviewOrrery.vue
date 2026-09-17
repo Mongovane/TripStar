@@ -89,6 +89,12 @@ const currentImage = computed(() => {
 const GREEK = ['α', 'β', 'γ', 'δ', 'ε', 'ζ', 'η', 'θ', 'ι', 'κ', 'λ', 'μ']
 const INK = 0x2a2019
 const BRASS = 0xb08637
+// 炫彩（极光/宝石虹彩）调色板
+const AURORA = [0x2FB4C9, 0x7C6FE0, 0xD96FA0, 0xE0A24E, 0x4FC58E, 0xE0705A]
+function jewelMat(hex: number, emiss = 0.35) {
+  return new THREE.MeshPhongMaterial({ color: hex, specular: 0xffffff, shininess: 100, emissive: hex, emissiveIntensity: emiss, transparent: true, opacity: 1 })
+}
+let shimmerRings: THREE.Mesh[] = []
 
 let renderer: THREE.WebGLRenderer | null = null
 let scene: THREE.Scene | null = null
@@ -163,16 +169,16 @@ function buildMarkers() {
 
   items.forEach((_, i) => {
     const g = new THREE.Group(); g.position.copy(pos[i])
-    const bead = new THREE.Mesh(new THREE.SphereGeometry(0.17, 24, 24),
-      new THREE.MeshPhongMaterial({ color: 0xc79a45, specular: 0xffffff, shininess: 110, emissive: 0x1a1206, emissiveIntensity: .3 }))
+    const col = AURORA[i % AURORA.length]
+    const bead = new THREE.Mesh(new THREE.SphereGeometry(0.18, 24, 24), jewelMat(col, 0.55))
     g.add(bead)
-    // subtle glow
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: brassGlow, color: 0xffffff, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false }))
-    glow.scale.set(1.5, 1.5, 1); g.add(glow)
-    const ringM = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.018, 12, 60), brassMat(.9)); ringM.rotation.x = 1.1 + i * 0.2; g.add(ringM)
-    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.012, 12, 60), brassMat(.55)); ring2.rotation.set(0.4, 0.8 + i, 0); g.add(ring2)
+    // subtle colored glow (kept small so it doesn't wash out)
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: brassGlow, color: col, transparent: true, opacity: .35, blending: THREE.AdditiveBlending, depthWrite: false }))
+    glow.scale.set(1.15, 1.15, 1); g.add(glow)
+    const ringM = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.02, 14, 64), jewelMat(col, 0.4)); ringM.rotation.x = 1.1 + i * 0.2; g.add(ringM)
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.012, 12, 60), jewelMat(col, 0.3)); (ring2.material as THREE.MeshPhongMaterial).opacity = .6; ring2.rotation.set(0.4, 0.8 + i, 0); g.add(ring2)
     const hit = new THREE.Mesh(new THREE.SphereGeometry(0.78, 10, 10), new THREE.MeshBasicMaterial({ visible: false })); hit.userData = { index: i }; g.add(hit)
-    ;(g as any).userData = { index: i, bead, glow, ringM, ring2, phase: Math.random() * 6.28 }
+    ;(g as any).userData = { index: i, bead, glow, ringM, ring2, color: col, phase: Math.random() * 6.28 }
     root!.add(g); markers.push(g); hitTargets.push(hit)
   })
 
@@ -181,6 +187,8 @@ function buildMarkers() {
     labelEls = items.map((it, i) => {
       const d = document.createElement('div'); d.className = 'lab'
       d.innerHTML = `<div class="dot"></div><div class="tx"><span class="cat">${GREEK[i % GREEK.length]}</span>${it.name}</div>`
+      const dot = d.querySelector('.dot') as HTMLElement | null
+      if (dot) dot.style.borderColor = '#' + AURORA[i % AURORA.length].toString(16).padStart(6, '0')
       labelsRef.value!.appendChild(d); return d
     })
   }
@@ -309,8 +317,10 @@ function loop() {
   const cp = Math.cos(pitch), sp = Math.sin(pitch), cy = Math.cos(yaw), sy = Math.sin(yaw)
   camera.position.set(camDist * cp * sy, camDist * sp, camDist * cp * cy); camera.lookAt(0, 0, 0)
   if (armilla) { armilla.rotation.y = t * 0.05; if (armilla.children[2]) armilla.children[2].rotation.z = t * 0.08 }
-  if (sun) sun.rotation.y = t * 0.4
-  sunCorona.forEach((sp, i) => { const base = [2.6, 4.2, 6.2][i] || 3; const p = 1 + Math.sin(t * (1.1 + i * 0.3)) * 0.06; sp.scale.set(base * p, base * p, 1) })
+  if (sun) { sun.rotation.y = t * 0.4; const h = (t * 0.03) % 1; (sun.material as THREE.MeshPhongMaterial).color.setHSL(h, 0.62, 0.6); (sun.material as THREE.MeshPhongMaterial).emissive.setHSL(h, 0.6, 0.42) }
+  sunCorona.forEach((sp) => { const p = 1 + Math.sin(t * 1.2) * 0.06; sp.scale.set(2.0 * p, 2.0 * p, 1) })
+  // 宝石环随时间缓慢流转（炫彩流光）
+  shimmerRings.forEach((m, i) => { const h = (t * 0.02 + i * 0.3) % 1; const mat = m.material as THREE.MeshPhongMaterial; mat.color.setHSL(h, 0.55, 0.58); mat.emissive.setHSL(h, 0.55, 0.4) })
   planets.forEach((pl) => {
     const a = t * pl.speed + pl.phase
     pl.mesh.position.set(Math.cos(a) * pl.r, Math.sin(a) * pl.r * Math.sin(pl.tilt), Math.sin(a) * pl.r * Math.cos(pl.tilt))
@@ -325,10 +335,9 @@ function loop() {
     const active = i === hovered || i === selected.value
     const pulse = 1 + Math.sin(t * 1.6 + ud.phase) * 0.05
     ud.bead.scale.setScalar((active ? 1.5 : 1) * pulse)
-    ud.bead.material.emissiveIntensity = active ? 0.55 : 0.3
-    ud.bead.material.color.setHex(active ? 0xe7ce93 : 0xc79a45)
-    ud.glow.scale.setScalar((active ? 2.6 : 1.5) * pulse)
-    ud.glow.material.opacity = active ? 0.85 : 0.5
+    ud.bead.material.emissiveIntensity = active ? 0.85 : 0.55
+    ud.glow.scale.setScalar((active ? 1.9 : 1.15) * pulse)
+    ud.glow.material.opacity = active ? 0.6 : 0.35
     ud.ringM.rotation.z = t * 0.6 + i; ud.ring2.rotation.z = -t * 0.4 + i
     // label projection
     if (host && labelEls[i] && camera) {
@@ -366,13 +375,16 @@ function initScene() {
   root = new THREE.Group(); scene.add(root)
   armilla = new THREE.Group(); scene.add(armilla)
 
-  const ring = (radius: number, tube: number, rx: number, ry: number, rz: number, op: number) => {
-    const m = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 16, 130), brassMat(op)); m.rotation.set(rx, ry, rz); return m
+  const ring = (radius: number, tube: number, rx: number, ry: number, rz: number, op: number, color: number, shimmer = false) => {
+    const mat = jewelMat(color, 0.5); mat.opacity = op
+    const m = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 18, 150), mat); m.rotation.set(rx, ry, rz)
+    if (shimmer) shimmerRings.push(m)
+    return m
   }
-  armilla.add(ring(6.1, 0.05, Math.PI / 2, 0, 0, .9))
-  armilla.add(ring(6.1, 0.05, 0, 0, 0, .9))
-  armilla.add(ring(5.4, 0.04, 0.41, 0, 0, .8))
-  armilla.add(ring(6.5, 0.03, Math.PI / 2, 0, 0, .5))
+  armilla.add(ring(6.1, 0.06, Math.PI / 2, 0, 0, .92, AURORA[0], true))   // 青
+  armilla.add(ring(6.1, 0.06, 0, 0, 0, .92, AURORA[1], true))             // 紫
+  armilla.add(ring(5.4, 0.05, 0.41, 0, 0, .85, AURORA[2], true))          // 玫瑰
+  armilla.add(ring(6.5, 0.03, Math.PI / 2, 0, 0, .5, AURORA[3]))          // 琥珀 外圈刻度环
   const ticks = new THREE.Group()
   for (let i = 0; i < 72; i++) {
     const a = i / 72 * Math.PI * 2, long = i % 9 === 0
@@ -381,31 +393,26 @@ function initScene() {
   }
   ticks.rotation.x = Math.PI / 2; armilla.add(ticks)
 
-  sun = new THREE.Mesh(new THREE.SphereGeometry(0.3, 28, 28),
-    new THREE.MeshPhongMaterial({ color: 0xf0dca6, specular: 0xffffff, shininess: 120, emissive: 0xc0562a, emissiveIntensity: .28 }))
-  // layered corona glow
+  sun = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 32), jewelMat(AURORA[3], 0.65))
   sunCorona = []
-  ;[[2.6, 0.5, 0xffe6b0], [4.2, 0.28, 0xE7A45A], [6.2, 0.14, 0xC0562A]].forEach((c) => {
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: brassGlow, color: c[2] as number, transparent: true, opacity: c[1] as number, blending: THREE.AdditiveBlending, depthWrite: false }))
-    sp.scale.set(c[0] as number, c[0] as number, 1); sun.add(sp); sunCorona.push(sp)
-  })
+  const sc = new THREE.Sprite(new THREE.SpriteMaterial({ map: brassGlow, color: 0xffffff, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false }))
+  sc.scale.set(2.0, 2.0, 1); sun.add(sc); sunCorona.push(sc)
   armilla.add(sun)
 
   // decorative orbiting planets (the orrery comes alive)
   planets = []
   const planetDefs = [
-    { r: 2.3, speed: 0.5, tilt: 0.2, color: 0xC0562A, size: 0.11 },
-    { r: 3.5, speed: 0.32, tilt: -0.5, color: 0x2B6B78, size: 0.14 },
-    { r: 4.7, speed: 0.22, tilt: 0.34, color: 0xB08637, size: 0.1 },
+    { r: 2.3, speed: 0.5, tilt: 0.2, color: AURORA[2], size: 0.12 },
+    { r: 3.5, speed: 0.32, tilt: -0.5, color: AURORA[0], size: 0.15 },
+    { r: 4.7, speed: 0.22, tilt: 0.34, color: AURORA[1], size: 0.11 },
   ]
   planetDefs.forEach((d) => {
     // dotted orbit path
-    const path = new THREE.Mesh(new THREE.TorusGeometry(d.r, 0.007, 8, 120), new THREE.MeshBasicMaterial({ color: 0x6B5C4C, transparent: true, opacity: .28 }))
+    const path = new THREE.Mesh(new THREE.TorusGeometry(d.r, 0.007, 8, 120), new THREE.MeshBasicMaterial({ color: 0x6B5C4C, transparent: true, opacity: .24 }))
     path.rotation.x = Math.PI / 2 + d.tilt; armilla!.add(path)
-    const m = new THREE.Mesh(new THREE.SphereGeometry(d.size, 20, 20),
-      new THREE.MeshPhongMaterial({ color: d.color, specular: 0xffffff, shininess: 80, emissive: d.color, emissiveIntensity: .12 }))
-    const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: brassGlow, color: d.color, transparent: true, opacity: .4, blending: THREE.AdditiveBlending, depthWrite: false }))
-    g.scale.set(d.size * 7, d.size * 7, 1); m.add(g)
+    const m = new THREE.Mesh(new THREE.SphereGeometry(d.size, 20, 20), jewelMat(d.color, 0.45))
+    const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: brassGlow, color: d.color, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false }))
+    g.scale.set(d.size * 5, d.size * 5, 1); m.add(g)
     armilla!.add(m)
     planets.push({ mesh: m, r: d.r, speed: d.speed, tilt: d.tilt, phase: Math.random() * 6.28 })
   })
@@ -457,7 +464,7 @@ onBeforeUnmount(() => {
   const cv = canvasRef.value
   if (cv) { cv.removeEventListener('mousedown', onDown); cv.removeEventListener('touchstart', onDown); cv.removeEventListener('touchmove', onMove); cv.removeEventListener('touchend', onUp); cv.removeEventListener('wheel', onWheel); cv.removeEventListener('click', onClick) }
   if (renderer) { renderer.dispose(); renderer = null }
-  scene = null; camera = null; root = null; armilla = null; markers = []; planets = []; dust = null; sunCorona = []
+  scene = null; camera = null; root = null; armilla = null; markers = []; planets = []; dust = null; sunCorona = []; shimmerRings = []
 })
 </script>
 
