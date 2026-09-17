@@ -11,8 +11,10 @@ import random
 import logging
 import threading
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from urllib.parse import urlparse
 import requests
 import httpx
 from typing import List, Dict, Any, Optional
@@ -23,6 +25,34 @@ from .xhs_sign.sign_util import generate_request_params, splice_str, generate_x_
 logger = logging.getLogger(__name__)
 _amap_geocode_warning_lock = threading.Lock()
 _amap_geocode_warning_keys: set[tuple[str, str]] = set()
+_amap_geocode_rate_lock = threading.Lock()
+_amap_geocode_request_times = deque()
+_AMAP_GEOCODE_RATE_LIMIT = 3
+_AMAP_GEOCODE_RATE_WINDOW = 1.0
+
+
+def _wait_for_amap_geocode_slot() -> None:
+    """限制高德地理编码请求启动速率，避免超过官方 3 次/秒上限。"""
+    while True:
+        wait_seconds = 0.0
+        now = time.monotonic()
+        with _amap_geocode_rate_lock:
+            while (
+                _amap_geocode_request_times
+                and now - _amap_geocode_request_times[0] >= _AMAP_GEOCODE_RATE_WINDOW
+            ):
+                _amap_geocode_request_times.popleft()
+
+            if len(_amap_geocode_request_times) < _AMAP_GEOCODE_RATE_LIMIT:
+                _amap_geocode_request_times.append(now)
+                return
+
+            wait_seconds = _AMAP_GEOCODE_RATE_WINDOW - (
+                now - _amap_geocode_request_times[0]
+            )
+
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
 
 
 class XHSCookieExpiredError(Exception):
@@ -224,16 +254,21 @@ def _geocode_amap_raw(address: str, city: str) -> Optional[dict]:
         return None
 
     params = {
-        "keywords": address,
-        "city": city,
-        "offset": 1,
         "key": settings.vite_amap_web_key,
+        "address": address,
+        "output": "JSON",
     }
+    if city:
+        params["city"] = city
+
     try:
-        resp = httpx.get("https://restapi.amap.com/v3/place/text", params=params, timeout=5, trust_env=False)
+        _wait_for_amap_geocode_slot()
+        resp = httpx.get("https://restapi.amap.com/v3/geocode/geo", params=params, timeout=5, trust_env=False)
         data = resp.json()
-        if data.get("status") == "1" and data.get("pois"):
-            location = data["pois"][0]["location"]
+        if data.get("status") == "1" and data.get("geocodes"):
+            location = data["geocodes"][0].get("location", "")
+            if not location:
+                return None
             lon, lat = location.split(",")
             return {"longitude": float(lon), "latitude": float(lat)}
         info = str(data.get("info") or "")
@@ -418,7 +453,7 @@ JSON 返回示例:
 
         locations: List[Optional[dict]] = []
         if valid_items:
-            with ThreadPoolExecutor(max_workers=min(5, len(valid_items))) as pool:
+            with ThreadPoolExecutor(max_workers=min(3, len(valid_items))) as pool:
                 locations = list(pool.map(_resolve_location, valid_items))
 
         final_result = f"这是小红书热门精选游记的提取结果，附带确切坐标（图片由前端单独搜索获取）：\n"
@@ -467,12 +502,23 @@ def _photo_cache_put(keyword: str, url: str) -> None:
 
 
 def get_xhs_photo_sync(keyword: str) -> str:
-    """带缓存的景点图片查询入口。"""
+    """带缓存的景点图片直链查询入口（兼容旧调用方）。
+
+    搜索接口返回的直链带时效签名，必须拿到后立即预取字节落盘
+    （按关键词缓存），否则前端稍后访问必然 403。
+    """
     cached = _photo_cache_get(keyword)
     if cached is not None:
         return cached
 
     url = _fetch_xhs_photo(keyword)
+    if url:
+        try:
+            _validate_image_url(url)
+            content, content_type = _download_image(url)
+            _write_image_cache("kw:" + keyword, content, content_type)
+        except (XHSImageProxyError, ValueError) as e:
+            print(f"⚠️  预取图片字节失败（可稍后经 image 接口自动重试）: {e}")
     _photo_cache_put(keyword, url)
     return url
 
@@ -563,3 +609,151 @@ async def get_photo_from_xhs(keyword: str) -> str:
     """供异步环境调用的小红书图片搜索API"""
     import asyncio
     return await asyncio.to_thread(get_xhs_photo_sync, keyword)
+
+
+# ============ 图片代理（防盗链绕过 + 时效直链预取） ============
+# 小红书图片 CDN 有两层限制：
+# 1. 防盗链：稳定格式直链（sns-img-*.xhscdn.com）会校验请求 Referer，
+#    浏览器从非 localhost 站点直接引用会得到 403（issue #28）；
+# 2. 时效签名：搜索/详情接口返回的部分直链（sns-webpic-*）路径内嵌时间戳，
+#    生成约 1 分钟后即失效，即使服务端带正确 Referer 再取也会 403。
+# 因此图片必须由后端在拿到直链的瞬间立即代取并落盘；磁盘缓存以搜索
+# 关键词为主键（而非 URL），缓存过期/丢失后可透明地重搜重取。
+
+_IMAGE_CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "photo_cache"
+_IMAGE_CACHE_TTL_SECONDS = 24 * 3600
+_IMAGE_MAX_SIZE_BYTES = 10 * 1024 * 1024
+_IMAGE_ALLOWED_HOST_SUFFIXES = (".xiaohongshu.com", ".xhscdn.com")
+_IMAGE_FETCH_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": "https://www.xiaohongshu.com/",
+}
+
+
+class XHSImageProxyError(Exception):
+    """小红书图片代理抓取失败。"""
+    pass
+
+
+def _validate_image_url(url: str) -> None:
+    """校验图片 URL 必须指向小红书图片 CDN，防止代理被滥用于任意地址（SSRF）。"""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"不支持的图片 URL 协议: {parsed.scheme}")
+    host = (parsed.hostname or "").lower()
+    if not any(host == suffix.lstrip(".") or host.endswith(suffix) for suffix in _IMAGE_ALLOWED_HOST_SUFFIXES):
+        raise ValueError(f"仅允许代理小红书图片域名，收到: {host}")
+
+
+def _image_cache_paths(cache_key: str) -> tuple:
+    """磁盘缓存文件路径（.img 内容 + .meta Content-Type），键已含命名空间。"""
+    import hashlib
+    digest = hashlib.sha256(cache_key.encode("utf-8")).hexdigest()
+    return _IMAGE_CACHE_DIR / f"{digest}.img", _IMAGE_CACHE_DIR / f"{digest}.meta"
+
+
+def _read_image_cache(cache_key: str) -> Optional[tuple]:
+    """读取未过期的缓存图片，返回 (bytes, content_type) 或 None。"""
+    cache_img, cache_meta = _image_cache_paths(cache_key)
+    if not (cache_img.exists() and cache_meta.exists()):
+        return None
+    if time.time() - cache_img.stat().st_mtime >= _IMAGE_CACHE_TTL_SECONDS:
+        return None
+    try:
+        content_type = cache_meta.read_text(encoding="utf-8").strip() or "image/jpeg"
+        return cache_img.read_bytes(), content_type
+    except OSError as e:
+        print(f"⚠️  读取图片缓存失败: {e}")
+        return None
+
+
+def _write_image_cache(cache_key: str, content: bytes, content_type: str) -> None:
+    """原子写入磁盘缓存，失败不影响本次响应。"""
+    cache_img, cache_meta = _image_cache_paths(cache_key)
+    try:
+        _IMAGE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        tmp_img = cache_img.with_suffix(".img.tmp")
+        tmp_img.write_bytes(content)
+        tmp_img.replace(cache_img)
+        tmp_meta = cache_meta.with_suffix(".meta.tmp")
+        tmp_meta.write_text(content_type, encoding="utf-8")
+        tmp_meta.replace(cache_meta)
+    except OSError as e:
+        print(f"⚠️  写入图片缓存失败: {e}")
+
+
+def _download_image(url: str) -> tuple:
+    """服务端下载小红书图片，返回 (bytes, content_type)。"""
+    try:
+        resp = httpx.get(
+            url,
+            headers=_IMAGE_FETCH_HEADERS,
+            timeout=15,
+            follow_redirects=True,
+            trust_env=False,
+        )
+    except httpx.TimeoutException as e:
+        raise XHSImageProxyError(f"图片下载超时: {url}") from e
+    except httpx.HTTPError as e:
+        raise XHSImageProxyError(f"图片下载失败: {url}: {e}") from e
+
+    if resp.status_code != 200:
+        raise XHSImageProxyError(f"图片下载返回 HTTP {resp.status_code}: {url}")
+
+    content = resp.content
+    content_type = resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+    if not content:
+        raise XHSImageProxyError(f"图片内容为空: {url}")
+    if not content_type.startswith("image/"):
+        raise XHSImageProxyError(f"响应不是图片 (content-type={content_type}): {url}")
+    if len(content) > _IMAGE_MAX_SIZE_BYTES:
+        raise XHSImageProxyError(f"图片超过大小限制 ({_IMAGE_MAX_SIZE_BYTES // 1024 // 1024}MB): {url}")
+
+    return content, content_type
+
+
+def fetch_xhs_image_bytes(url: str) -> tuple:
+    """按直链抓取小红书图片（URL 维度缓存），供 /api/poi/image?url= 使用。
+
+    URL 非法抛 ValueError，抓取失败抛 XHSImageProxyError。
+    仅稳定格式直链可长期有效；时效签名直链过期后必然失败。
+    """
+    _validate_image_url(url)
+
+    cached = _read_image_cache("url:" + url)
+    if cached is not None:
+        return cached
+
+    content, content_type = _download_image(url)
+    _write_image_cache("url:" + url, content, content_type)
+    return content, content_type
+
+
+def get_xhs_photo_bytes_sync(keyword: str) -> Optional[tuple]:
+    """获取关键词对应的图片字节；缓存 miss 时自动重搜新直链并立即下载。
+
+    返回 (bytes, content_type)，无法获取时返回 None。
+    """
+    cached = _read_image_cache("kw:" + keyword)
+    if cached is not None:
+        return cached
+
+    for attempt in range(2):
+        url = _fetch_xhs_photo(keyword)
+        if not url:
+            return None
+        try:
+            _validate_image_url(url)
+            content, content_type = _download_image(url)
+            _write_image_cache("kw:" + keyword, content, content_type)
+            return content, content_type
+        except (XHSImageProxyError, ValueError) as e:
+            # 直链多为限时签名，失败后重搜一条全新直链再试一次
+            print(f"⚠️  图片下载失败（第{attempt + 1}次，将重取新直链）: {e}")
+    return None
+
+
+async def get_photo_bytes_from_xhs(keyword: str) -> Optional[tuple]:
+    """供异步环境调用的图片字节获取入口。"""
+    import asyncio
+    return await asyncio.to_thread(get_xhs_photo_bytes_sync, keyword)
