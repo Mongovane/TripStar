@@ -1,5 +1,7 @@
 <template>
   <div ref="rootRef" class="orrery">
+    <div class="orrery-nebula"></div>
+    <svg ref="atlasRef" class="orrery-atlas" preserveAspectRatio="xMidYMid meet"></svg>
     <canvas ref="canvasRef" class="orrery-canvas"></canvas>
 
     <!-- almanac plate frame -->
@@ -73,6 +75,7 @@ const rootRef = ref<HTMLElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const labelsRef = ref<HTMLElement | null>(null)
 const frameRef = ref<SVGElement | null>(null)
+const atlasRef = ref<SVGElement | null>(null)
 const selected = ref(-1)
 const failed = ref(false)
 const imgFailed = ref(false)
@@ -94,6 +97,9 @@ let root: THREE.Group | null = null
 let armilla: THREE.Group | null = null
 let sun: THREE.Mesh | null = null
 let markers: THREE.Group[] = []
+let planets: { mesh: THREE.Mesh; r: number; speed: number; tilt: number; phase: number }[] = []
+let dust: THREE.Points | null = null
+let sunCorona: THREE.Sprite[] = []
 let hitTargets: THREE.Object3D[] = []
 let labelEls: HTMLElement[] = []
 let rafId = 0
@@ -196,6 +202,65 @@ function drawFrame() {
   svg.innerHTML = s
 }
 
+function drawAtlas() {
+  const svg = atlasRef.value, host = rootRef.value
+  if (!svg || !host) return
+  const w = host.clientWidth, h = host.clientHeight
+  const cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.46
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
+  const ink = 'rgba(36,29,24,'
+  let s = ''
+  // scattered reference stars + a few 4-point star glyphs (seeded pseudo-random)
+  let seed = 20260924
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
+  for (let i = 0; i < 120; i++) {
+    const x = rnd() * w, y = rnd() * h
+    if (Math.hypot(x - cx, y - cy) < R * 0.62) continue
+    const r = rnd() * 1.1 + 0.4
+    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${ink}.28)"/>`
+  }
+  for (let i = 0; i < 7; i++) {
+    const x = rnd() * w, y = rnd() * h
+    if (Math.hypot(x - cx, y - cy) < R * 0.7) continue
+    const a = 4
+    s += `<path d="M${x} ${y - a} L${x + 1} ${y - 1} L${x + a} ${y} L${x + 1} ${y + 1} L${x} ${y + a} L${x - 1} ${y + 1} L${x - a} ${y} L${x - 1} ${y - 1} Z" fill="${ink}.34)"/>`
+  }
+  // a couple of faint constellation figures (corners)
+  const figs = [[[w * 0.14, h * 0.24], [w * 0.2, h * 0.34], [w * 0.28, h * 0.3], [w * 0.31, h * 0.42], [w * 0.24, h * 0.5]],
+    [[w * 0.86, h * 0.7], [w * 0.8, h * 0.62], [w * 0.9, h * 0.56], [w * 0.83, h * 0.5]]]
+  figs.forEach((f) => {
+    for (let i = 0; i < f.length - 1; i++) s += `<line x1="${f[i][0]}" y1="${f[i][1]}" x2="${f[i + 1][0]}" y2="${f[i + 1][1]}" stroke="${ink}.16)" stroke-width="1" stroke-dasharray="2 4"/>`
+    f.forEach((p) => { s += `<circle cx="${p[0]}" cy="${p[1]}" r="1.6" fill="${ink}.3)"/>` })
+  })
+  // central graduated dial
+  s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${ink}.16)" stroke-width="1"/>`
+  s += `<circle cx="${cx}" cy="${cy}" r="${R * 0.9}" fill="none" stroke="${ink}.1)" stroke-width="1"/>`
+  s += `<circle cx="${cx}" cy="${cy}" r="${R * 0.52}" fill="none" stroke="${ink}.09)" stroke-width="1"/>`
+  // 360 ticks
+  for (let i = 0; i < 360; i += 2) {
+    const a = i * Math.PI / 180, lg = i % 30 === 0, len = lg ? 12 : (i % 10 === 0 ? 7 : 3.5)
+    const x1 = cx + Math.cos(a) * R, y1 = cy + Math.sin(a) * R
+    const x2 = cx + Math.cos(a) * (R - len), y2 = cy + Math.sin(a) * (R - len)
+    s += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${ink}${lg ? '.3' : '.16'})" stroke-width="1"/>`
+  }
+  // degree labels every 30
+  for (let i = 0; i < 360; i += 30) {
+    const a = i * Math.PI / 180, x = cx + Math.cos(a) * (R - 26), y = cy + Math.sin(a) * (R - 26)
+    s += `<text x="${x.toFixed(1)}" y="${(y + 3).toFixed(1)}" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="${ink}.32)">${i}°</text>`
+  }
+  // radial spokes
+  for (let i = 0; i < 12; i++) { const a = i * 30 * Math.PI / 180
+    s += `<line x1="${cx}" y1="${cy}" x2="${(cx + Math.cos(a) * R * 0.9).toFixed(1)}" y2="${(cy + Math.sin(a) * R * 0.9).toFixed(1)}" stroke="${ink}.05)" stroke-width="1"/>`
+  }
+  // compass rose points N/E/S/W
+  const rose = R + 16
+  ;[['N', -90], ['E', 0], ['S', 90], ['W', 180]].forEach((d) => {
+    const a = (d[1] as number) * Math.PI / 180, x = cx + Math.cos(a) * rose, y = cy + Math.sin(a) * rose
+    s += `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle" font-family="'Newsreader',serif" font-size="14" fill="var(--rust,#C0562A)" opacity=".7">${d[0]}</text>`
+  })
+  svg.innerHTML = s
+}
+
 function resize() {
   const host = rootRef.value
   if (!host || !renderer || !camera) return
@@ -203,6 +268,7 @@ function resize() {
   renderer.setSize(w, h, false)
   camera.aspect = w / h; camera.updateProjectionMatrix()
   drawFrame()
+  drawAtlas()
 }
 
 function pointer(e: MouseEvent | TouchEvent) {
@@ -244,6 +310,12 @@ function loop() {
   camera.position.set(camDist * cp * sy, camDist * sp, camDist * cp * cy); camera.lookAt(0, 0, 0)
   if (armilla) { armilla.rotation.y = t * 0.05; if (armilla.children[2]) armilla.children[2].rotation.z = t * 0.08 }
   if (sun) sun.rotation.y = t * 0.4
+  sunCorona.forEach((sp, i) => { const base = [2.6, 4.2, 6.2][i] || 3; const p = 1 + Math.sin(t * (1.1 + i * 0.3)) * 0.06; sp.scale.set(base * p, base * p, 1) })
+  planets.forEach((pl) => {
+    const a = t * pl.speed + pl.phase
+    pl.mesh.position.set(Math.cos(a) * pl.r, Math.sin(a) * pl.r * Math.sin(pl.tilt), Math.sin(a) * pl.r * Math.cos(pl.tilt))
+  })
+  if (dust) { dust.rotation.y = t * 0.02; dust.rotation.x = Math.sin(t * 0.08) * 0.04 }
 
   if (!dragging) { const hp = pick(); if (hp !== hovered) { hovered = hp; if (canvasRef.value) canvasRef.value.style.cursor = hp >= 0 ? 'pointer' : 'grab' } }
 
@@ -309,11 +381,41 @@ function initScene() {
   }
   ticks.rotation.x = Math.PI / 2; armilla.add(ticks)
 
-  sun = new THREE.Mesh(new THREE.SphereGeometry(0.26, 24, 24),
-    new THREE.MeshPhongMaterial({ color: 0xe7ce93, specular: 0xffffff, shininess: 120, emissive: 0xc0562a, emissiveIntensity: .2 }))
-  const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: brassGlow, color: 0xffe6b0, transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false }))
-  sunGlow.scale.set(2.2, 2.2, 1); sun.add(sunGlow)
+  sun = new THREE.Mesh(new THREE.SphereGeometry(0.3, 28, 28),
+    new THREE.MeshPhongMaterial({ color: 0xf0dca6, specular: 0xffffff, shininess: 120, emissive: 0xc0562a, emissiveIntensity: .28 }))
+  // layered corona glow
+  sunCorona = []
+  ;[[2.6, 0.5, 0xffe6b0], [4.2, 0.28, 0xE7A45A], [6.2, 0.14, 0xC0562A]].forEach((c) => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: brassGlow, color: c[2] as number, transparent: true, opacity: c[1] as number, blending: THREE.AdditiveBlending, depthWrite: false }))
+    sp.scale.set(c[0] as number, c[0] as number, 1); sun.add(sp); sunCorona.push(sp)
+  })
   armilla.add(sun)
+
+  // decorative orbiting planets (the orrery comes alive)
+  planets = []
+  const planetDefs = [
+    { r: 2.3, speed: 0.5, tilt: 0.2, color: 0xC0562A, size: 0.11 },
+    { r: 3.5, speed: 0.32, tilt: -0.5, color: 0x2B6B78, size: 0.14 },
+    { r: 4.7, speed: 0.22, tilt: 0.34, color: 0xB08637, size: 0.1 },
+  ]
+  planetDefs.forEach((d) => {
+    // dotted orbit path
+    const path = new THREE.Mesh(new THREE.TorusGeometry(d.r, 0.007, 8, 120), new THREE.MeshBasicMaterial({ color: 0x6B5C4C, transparent: true, opacity: .28 }))
+    path.rotation.x = Math.PI / 2 + d.tilt; armilla!.add(path)
+    const m = new THREE.Mesh(new THREE.SphereGeometry(d.size, 20, 20),
+      new THREE.MeshPhongMaterial({ color: d.color, specular: 0xffffff, shininess: 80, emissive: d.color, emissiveIntensity: .12 }))
+    const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: brassGlow, color: d.color, transparent: true, opacity: .4, blending: THREE.AdditiveBlending, depthWrite: false }))
+    g.scale.set(d.size * 7, d.size * 7, 1); m.add(g)
+    armilla!.add(m)
+    planets.push({ mesh: m, r: d.r, speed: d.speed, tilt: d.tilt, phase: Math.random() * 6.28 })
+  })
+
+  // golden drifting dust
+  const DN = 130, darr = new Float32Array(DN * 3)
+  for (let i = 0; i < DN; i++) { darr[i * 3] = (Math.random() - .5) * 22; darr[i * 3 + 1] = (Math.random() - .5) * 16; darr[i * 3 + 2] = (Math.random() - .5) * 16 }
+  const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(darr, 3))
+  dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xD9A441, size: 0.13, map: brassGlow, transparent: true, opacity: .45, blending: THREE.AdditiveBlending, depthWrite: false }))
+  scene.add(dust)
 
   // faint ink reference stars
   const N = 200, arr = new Float32Array(N * 3)
@@ -335,6 +437,7 @@ function initScene() {
   cv.style.cursor = 'grab'
 
   drawFrame()
+  drawAtlas()
   ro = new ResizeObserver(resize); ro.observe(host)
   loop()
 }
@@ -354,7 +457,7 @@ onBeforeUnmount(() => {
   const cv = canvasRef.value
   if (cv) { cv.removeEventListener('mousedown', onDown); cv.removeEventListener('touchstart', onDown); cv.removeEventListener('touchmove', onMove); cv.removeEventListener('touchend', onUp); cv.removeEventListener('wheel', onWheel); cv.removeEventListener('click', onClick) }
   if (renderer) { renderer.dispose(); renderer = null }
-  scene = null; camera = null; root = null; armilla = null; markers = []
+  scene = null; camera = null; root = null; armilla = null; markers = []; planets = []; dust = null; sunCorona = []
 })
 </script>
 
@@ -367,18 +470,27 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border-radius: 4px;
   background:
-    radial-gradient(115% 80% at 50% 42%, rgba(255, 251, 242, .5), transparent 60%),
-    radial-gradient(120% 90% at 50% -8%, rgba(192, 86, 42, .09), transparent 55%),
-    radial-gradient(150% 120% at 50% 120%, rgba(31, 84, 96, .1), transparent 60%),
-    #F1EADB;
+    radial-gradient(120% 85% at 50% 44%, rgba(255, 251, 242, .6), transparent 62%),
+    radial-gradient(90% 70% at 50% 46%, rgba(217, 164, 65, .1), transparent 60%),
+    radial-gradient(120% 90% at 50% -8%, rgba(192, 86, 42, .1), transparent 55%),
+    radial-gradient(150% 120% at 50% 118%, rgba(31, 84, 96, .12), transparent 60%),
+    #EFE7D6;
 }
 @media (max-width: 640px) { .orrery { height: 420px; } }
 .orrery::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background-image: radial-gradient(circle, rgba(36, 29, 24, .05) 1px, transparent 1px);
-  background-size: 22px 22px; opacity: .5;
+  background-size: 22px 22px; opacity: .45;
 }
-.orrery-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.orrery-nebula {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(38% 46% at 50% 48%, rgba(224, 164, 90, .16), transparent 70%),
+    radial-gradient(60% 60% at 50% 50%, rgba(31, 84, 96, .06), transparent 72%);
+  filter: blur(2px);
+}
+.orrery-atlas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: .9; }
+.orrery-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
 .orrery-frame { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .orrery-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
 
