@@ -77,7 +77,7 @@
           </div>
           <a-empty v-else :description="t('common.noData')" />
           <div class="overview-meta">
-            <span class="overview-meta-item" style="color: #ffd5c6; font-weight: 700;">
+            <span class="overview-meta-item" style="color: var(--rust); font-weight: 700;">
               {{ t('result.dateRange', { start: tripPlan.start_date, end: tripPlan.end_date }) }}
             </span>
             <span v-if="planId" class="overview-meta-item">
@@ -3164,8 +3164,15 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 .attraction-image-wrapper {
   position: relative;
   margin-bottom: 12px;
-  border-radius: 12px;
+  border-radius: 4px;
   overflow: hidden;
+  background: linear-gradient(160deg, #1f4450 0%, #14232a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--brass-soft);
+  font-weight: 700;
 }
 
 .attraction-image {
@@ -4233,12 +4240,12 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 .day-title {
   font-size: 18px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
 }
 
 .day-date {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--ink-faint);
   margin-left: auto;
 }
 
@@ -4276,7 +4283,7 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
   background: rgba(246, 189, 22, 0.08);
   border: 1px solid rgba(246, 189, 22, 0.2);
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
 }
 
 .transfer-info-icon {
@@ -4291,9 +4298,9 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 .day-info {
   margin-bottom: 20px;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--paper-2);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
 }
 
 .info-row {
@@ -4308,60 +4315,60 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 
 .info-row .label {
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--ink-soft);
   min-width: 100px;
 }
 
 .info-row .value {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
   flex: 1;
 }
 
 /* 卡片样式 - 玻璃拟态暗色 */
 :deep(.ant-card) {
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: var(--paper-2) !important;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line) !important;
+  box-shadow: 0 8px 32px rgba(36, 29, 24, 0.12);
   margin-bottom: 20px;
   transition: all 0.3s ease;
   animation: fadeInUp 0.6s ease-out;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
 }
 
 :deep(.ant-card:hover) {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 40px rgba(36, 29, 24, 0.16);
   border-color: rgba(215, 110, 66, 0.26) !important;
 }
 
 :deep(.ant-card-head) {
   background: linear-gradient(135deg, rgba(215, 110, 66, 0.2) 0%, rgba(161, 70, 37, 0.14) 100%) !important;
-  color: #ffe3d6 !important;
+  color: var(--rust-deep) !important;
   border-radius: 16px 16px 0 0;
   font-weight: 600;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-bottom: 1px solid var(--line) !important;
 }
 
 :deep(.ant-card-head-title) {
-  color: #ffe3d6 !important;
+  color: var(--rust-deep) !important;
   font-size: 18px;
 }
 
 :deep(.ant-card-head-title span) {
-  color: #ffe3d6 !important;
+  color: var(--rust-deep) !important;
 }
 
 :deep(.ant-card-body) {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
 }
 
 :deep(.ant-card-body p) {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ink-soft);
 }
 
 :deep(.ant-card-body strong) {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--ink-soft);
 }
 
 /* Collapse 样式 - 暗色 */
@@ -4372,31 +4379,31 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 
 :deep(.ant-collapse-item) {
   margin-bottom: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid var(--line) !important;
   border-radius: 16px !important;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--paper-2);
 }
 
 :deep(.ant-collapse-header) {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: var(--paper-2) !important;
   padding: 16px 20px !important;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.8) !important;
+  color: var(--ink) !important;
 }
 
 :deep(.ant-collapse-expand-icon) {
-  color: rgba(255, 255, 255, 0.4) !important;
+  color: var(--ink-faint) !important;
 }
 
 :deep(.ant-collapse-content) {
-  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-top: 1px solid var(--line) !important;
   background: transparent !important;
 }
 
 :deep(.ant-collapse-content-box) {
   padding: 20px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ink-soft);
 }
 
 /* Descriptions 暗色 */
@@ -4630,6 +4637,28 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
   }
 
 }
+
+/* ===== NavBar 换肤（Result 页，功能不动，仅配色）===== */
+:deep(.landing-navbar) {
+  background: rgba(244, 238, 225, 0.86) !important;
+  border-bottom: 1px solid var(--line) !important;
+  backdrop-filter: blur(10px);
+}
+:deep(.landing-brand) { color: var(--ink) !important; letter-spacing: .01em; }
+:deep(.landing-nav .nav-link),
+:deep(.landing-nav-btn) { color: var(--ink-soft) !important; }
+:deep(.landing-nav .nav-link:hover),
+:deep(.landing-nav-btn:hover) { color: var(--ink) !important; }
+:deep(.landing-cta.btn-danger) {
+  background: var(--rust) !important; border-color: var(--rust) !important; color: var(--paper) !important;
+}
+:deep(.landing-cta.btn-danger:hover) { background: var(--rust-deep) !important; border-color: var(--rust-deep) !important; }
+:deep(.navbar-toggler-bar) { background: var(--ink) !important; }
+:deep(.lang-select-nav .ant-select-selector) {
+  background: var(--card) !important; border: 1px solid var(--line) !important; color: var(--ink) !important;
+}
+:deep(.lang-select-nav .ant-select-selection-item),
+:deep(.lang-select-nav .ant-select-arrow) { color: var(--ink) !important; }
 
 </style>
 
