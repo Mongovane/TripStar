@@ -75,8 +75,9 @@ main {
   padding: 1.875rem 0;
 }
 .swiper-slide {
-  width: 10.75rem;
-  height: 25rem;
+  width: 100%;
+  height: auto;
+  min-height: 21rem;
   display: flex;
   flex-direction: column;
   justify-content: end;
@@ -91,7 +92,7 @@ main {
   &-img {
     position: relative;
     width: 100%;
-    height: 18rem;
+    height: 13rem;
     flex-shrink: 0;
     overflow: hidden;
     line-height: 0;
@@ -198,16 +199,16 @@ main {
   }
 }
 
-.swiper-slide-active:hover img {
+.swiper-slide:hover img {
   transform: scale(1.2) rotate(-5deg);
 }
 
-.swiper-slide-active:hover .show-more {
+.swiper-slide:hover .show-more {
   opacity: 1;
   height: 3.125rem;
 }
 
-.swiper-slide-active:hover p {
+.swiper-slide:hover p {
   display: block;
   overflow: visible;
 }

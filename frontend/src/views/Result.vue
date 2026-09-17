@@ -59,21 +59,17 @@
           :bordered="false"
           class="overview-card section-shellless"
         >
-          <div v-if="overviewAttractions.length > 0" ref="overviewSwiperContainerRef" class="overview-swiper">
-            <div class="swiper">
-              <div class="swiper-wrapper">
-                <OverviewAttractionCard
-                  v-for="(item, index) in overviewAttractions"
-                  :key="`${item.dayArrayIndex}-${item.order}-${item.name}`"
-                  :item="item"
-                  :image-src="getAttractionImage(item.name, index)"
-                  :active="activeOverviewCard === index"
-                  @hover="setActiveOverviewCard(index)"
-                  @image-error="handleImageError"
-                  @select-day="goToDayFromOverview"
-                />
-              </div>
-            </div>
+          <div v-if="overviewAttractions.length > 0" class="overview-grid">
+            <OverviewAttractionCard
+              v-for="(item, index) in overviewAttractions"
+              :key="`${item.dayArrayIndex}-${item.order}-${item.name}`"
+              :item="item"
+              :image-src="getAttractionImage(item.name, index)"
+              :active="activeOverviewCard === index"
+              @hover="setActiveOverviewCard(index)"
+              @image-error="handleImageError"
+              @select-day="goToDayFromOverview"
+            />
           </div>
           <a-empty v-else :description="t('common.noData')" />
           <div class="overview-meta">
@@ -580,8 +576,6 @@ import AMapLoader from '@amap/amap-jsapi-loader'
 import { Loader as GoogleMapsLoader } from '@googlemaps/js-api-loader'
 import html2canvas from 'html2canvas'
 import * as echarts from 'echarts'
-import Swiper from 'swiper'
-import { EffectCoverflow, Keyboard, Mousewheel } from 'swiper/modules'
 import NavBar from '@/components/NavBar.vue'
 import OverviewAttractionCard from '@/components/OverviewAttractionCard.vue'
 import AIChat from '@/components/AIChat.vue'
@@ -608,7 +602,6 @@ const attractionPhotos = ref<Record<string, string>>({})
 const activeSection = ref('overview')
 const activeDays = ref<number[]>([0]) // 默认展开第一天
 const activeOverviewCard = ref(1)
-const overviewSwiperContainerRef = ref<HTMLElement | null>(null)
 const mapRefreshing = ref(false)
 let map: any = null
 let googleMap: google.maps.Map | null = null
@@ -617,7 +610,6 @@ let googlePolylines: google.maps.Polyline[] = []
 let googleInfoWindows: google.maps.InfoWindow[] = []
 let googleDirectionsRenderers: google.maps.DirectionsRenderer[] = []
 const mapProviderType = ref<'google' | 'amap'>('amap')
-let overviewSwiper: Swiper | null = null
 let mapInitGeneration = 0
 
 type OverviewAttractionItem = {
@@ -848,64 +840,6 @@ const overviewAttractions = computed<OverviewAttractionItem[]>(() => {
   return items
 })
 
-const destroyOverviewSwiper = () => {
-  if (overviewSwiper) {
-    overviewSwiper.destroy(true, true)
-    overviewSwiper = null
-  }
-}
-
-const initOverviewSwiper = async () => {
-  await nextTick()
-
-  if (!overviewSwiperContainerRef.value || overviewAttractions.value.length === 0) {
-    destroyOverviewSwiper()
-    return
-  }
-
-  const root = overviewSwiperContainerRef.value.querySelector('.swiper') as HTMLElement | null
-  if (!root) return
-
-  destroyOverviewSwiper()
-  overviewSwiper = new Swiper(root, {
-    modules: [EffectCoverflow, Keyboard, Mousewheel],
-    effect: 'coverflow',
-    grabCursor: true,
-    centeredSlides: true,
-    coverflowEffect: {
-      rotate: 0,
-      stretch: 0,
-      depth: 100,
-      modifier: 2.5,
-    },
-    keyboard: {
-      enabled: true,
-    },
-    mousewheel: {
-      thresholdDelta: 70,
-    },
-    spaceBetween: 30,
-    loop: false,
-    breakpoints: {
-      640: {
-        slidesPerView: 3,
-      },
-      1024: {
-        slidesPerView: 4,
-      },
-    },
-    on: {
-      slideChange: (swiper) => {
-        activeOverviewCard.value = swiper.activeIndex
-      },
-    },
-  })
-
-  const initialIndex = Math.min(1, overviewAttractions.value.length - 1)
-  activeOverviewCard.value = initialIndex
-  overviewSwiper.slideTo(initialIndex, 0, false)
-}
-
 // 知识图谱相关
 const graphData = ref<KnowledgeGraphData | null>(null)
 const graphCategories = ref<GraphCategory[]>([])
@@ -940,7 +874,6 @@ const applyTripPlanPayload = async (payload: {
   await loadAttractionPhotos()
   if (activeSection.value === 'map') await ensureMapReady()
   if (activeSection.value === 'knowledge-graph') await ensureGraphReady()
-  if (activeSection.value === 'overview') await initOverviewSwiper()
 }
 
 const restoreTripPlanFromResponse = async (response?: TripPlanResponse | null) => {
@@ -1290,7 +1223,6 @@ watch(activeSection, async (section) => {
   if (!tripPlan.value) return
   if (section === 'map') await ensureMapReady()
   if (section === 'knowledge-graph') await ensureGraphReady()
-  if (section === 'overview') await initOverviewSwiper()
 })
 
 watch(
@@ -1303,9 +1235,6 @@ watch(
     if (activeOverviewCard.value < 0 || activeOverviewCard.value >= items.length) {
       activeOverviewCard.value = Math.min(1, items.length - 1)
     }
-    if (activeSection.value === 'overview') {
-      void initOverviewSwiper()
-    }
   },
   { immediate: true }
 )
@@ -1314,7 +1243,6 @@ onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener(RUNTIME_SETTINGS_UPDATED_EVENT, handleRuntimeSettingsUpdated)
   }
-  destroyOverviewSwiper()
   destroyCurrentMap()
   if (kgResizeHandler) {
     window.removeEventListener('resize', kgResizeHandler)
@@ -1351,9 +1279,6 @@ const goToDayFromOverview = (dayArrayIndex: number) => {
 
 const setActiveOverviewCard = (index: number) => {
   activeOverviewCard.value = index
-  if (overviewSwiper && overviewSwiper.activeIndex !== index) {
-    overviewSwiper.slideTo(index)
-  }
 }
 
 // 切换编辑模式
@@ -1804,49 +1729,21 @@ const toProxiedPhotoUrl = (url?: string | null): string => {
   return `${getRuntimeApiBaseUrl()}/api/poi/image?url=${encodeURIComponent(url)}`
 }
 
-// 加载所有景点图片
+// 加载所有景点图片：统一走后端 name 键代理（带缓存 + miss 时自动重搜重取），
+// 无图时由 <img> @error 回退到占位。避免旧 /photo 预检为空就不再取图的问题。
 const loadAttractionPhotos = async () => {
   if (!tripPlan.value) return
 
   const apiBase = getRuntimeApiBaseUrl()
-  const city = tripPlan.value.city
   const uniqueNames = Array.from(
     new Set(
       tripPlan.value.days.flatMap((day) => day.attractions.map((attraction) => attraction.name))
     )
   ).filter((name) => name && !attractionPhotos.value[name])
 
-  if (uniqueNames.length === 0) return
-
-  const concurrencyLimit = 4
-  let currentIndex = 0
-
-  const loadNextPhoto = async () => {
-    while (currentIndex < uniqueNames.length) {
-      const index = currentIndex
-      currentIndex += 1
-      const name = uniqueNames[index]
-
-      try {
-        const response = await fetch(
-          `${apiBase}/api/poi/photo?name=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}`
-        )
-        const data = await response.json()
-        if (data.success && data.data.photo_url) {
-          // 直链带时效签名会过期，统一改走后端 name 键代理（缓存 miss 时自动重搜重取）
-          attractionPhotos.value[name] = `${apiBase}/api/poi/image?name=${encodeURIComponent(name)}`
-        }
-      } catch (err) {
-        console.error(`获取${name}图片失败:`, err)
-      }
-    }
+  for (const name of uniqueNames) {
+    attractionPhotos.value[name] = `${apiBase}/api/poi/image?name=${encodeURIComponent(name)}`
   }
-
-  const workers = Array.from(
-    { length: Math.min(concurrencyLimit, uniqueNames.length) },
-    () => loadNextPhoto()
-  )
-  await Promise.all(workers)
 }
 
 // 获取景点图片
@@ -3899,21 +3796,11 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
   line-height: 1.5;
 }
 
-.overview-swiper {
-  padding: 8px 2px 10px;
-}
-
-.overview-swiper .swiper {
-  padding: 0 0 0.6rem;
-  margin-top: -2rem;
-  margin-bottom: -2rem;
-  overflow: hidden;
-  border-radius: 12px;
-}
-
-.overview-swiper .swiper-wrapper {
-  align-items: flex-end;
-  min-height: 32rem;
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 20px;
+  padding: 10px 2px 14px;
 }
 
 
@@ -4604,13 +4491,9 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
     border-radius: 12px;
   }
 
-  .overview-swiper .swiper-wrapper {
-    gap: 1rem;
-    min-height: 27rem;
-  }
-
-  .overview-swiper .swiper {
-    padding: 2.4rem 0 0.6rem;
+  .overview-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .budget-toolbar {
