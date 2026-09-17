@@ -59,15 +59,10 @@
           :bordered="false"
           class="overview-card section-shellless"
         >
-          <div v-if="overviewAttractions.length > 0" class="overview-grid">
-            <OverviewAttractionCard
-              v-for="(item, index) in overviewAttractions"
-              :key="`${item.dayArrayIndex}-${item.order}-${item.name}`"
-              :item="item"
-              :image-src="getAttractionImage(item.name, index)"
-              :active="activeOverviewCard === index"
-              @hover="setActiveOverviewCard(index)"
-              @image-error="handleImageError"
+          <div v-if="overviewAttractions.length > 0" class="overview-orrery-wrap">
+            <OverviewOrrery
+              :attractions="overviewAttractions"
+              :get-image="orreryImage"
               @select-day="goToDayFromOverview"
             />
           </div>
@@ -577,7 +572,7 @@ import { Loader as GoogleMapsLoader } from '@googlemaps/js-api-loader'
 import html2canvas from 'html2canvas'
 import * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
-import OverviewAttractionCard from '@/components/OverviewAttractionCard.vue'
+import OverviewOrrery from '@/components/OverviewOrrery.vue'
 import AIChat from '@/components/AIChat.vue'
 import type { TripPlan, TripPlanResponse, KnowledgeGraphData, GraphCategory, Attraction, Meal, Hotel, WeatherInfo } from '@/types'
 import {
@@ -601,7 +596,6 @@ const originalPlan = ref<TripPlan | null>(null)
 const attractionPhotos = ref<Record<string, string>>({})
 const activeSection = ref('overview')
 const activeDays = ref<number[]>([0]) // 默认展开第一天
-const activeOverviewCard = ref(1)
 const mapRefreshing = ref(false)
 let map: any = null
 let googleMap: google.maps.Map | null = null
@@ -1225,20 +1219,6 @@ watch(activeSection, async (section) => {
   if (section === 'knowledge-graph') await ensureGraphReady()
 })
 
-watch(
-  overviewAttractions,
-  (items) => {
-    if (items.length === 0) {
-      activeOverviewCard.value = -1
-      return
-    }
-    if (activeOverviewCard.value < 0 || activeOverviewCard.value >= items.length) {
-      activeOverviewCard.value = Math.min(1, items.length - 1)
-    }
-  },
-  { immediate: true }
-)
-
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener(RUNTIME_SETTINGS_UPDATED_EVENT, handleRuntimeSettingsUpdated)
@@ -1277,9 +1257,8 @@ const goToDayFromOverview = (dayArrayIndex: number) => {
   activeSection.value = 'days'
 }
 
-const setActiveOverviewCard = (index: number) => {
-  activeOverviewCard.value = index
-}
+// 星盘卡片用图：返回该景点的图片地址（后端 name 代理），无图时组件内回退占位
+const orreryImage = (name: string): string => attractionPhotos.value[name] || ''
 
 // 切换编辑模式
 const toggleEditMode = () => {
@@ -3796,11 +3775,8 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
   line-height: 1.5;
 }
 
-.overview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
-  gap: 20px;
-  padding: 10px 2px 14px;
+.overview-orrery-wrap {
+  padding: 8px;
 }
 
 
