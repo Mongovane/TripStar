@@ -3,6 +3,7 @@
     <div class="orrery-nebula"></div>
     <svg ref="atlasRef" class="orrery-atlas" preserveAspectRatio="xMidYMid meet"></svg>
     <canvas ref="canvasRef" class="orrery-canvas"></canvas>
+    <div class="orrery-scan"></div>
 
     <!-- almanac plate frame -->
     <svg ref="frameRef" class="orrery-frame" preserveAspectRatio="none"></svg>
@@ -115,7 +116,9 @@ const rayc = new THREE.Raycaster()
 const mouse = new THREE.Vector2()
 const vTmp = new THREE.Vector3()
 
-let camDist = 18
+let camDist = 30
+let camDistTarget = 18
+let introStart = -1
 let yaw = 0.7, pitch = 0.3, tYaw = 0.7, tPitch = 0.3, idle = 0
 let dragging = false, moved = false, lastX = 0, lastY = 0, hovered = -1
 
@@ -156,6 +159,7 @@ function clearMarkers() {
 function buildMarkers() {
   if (!root || !scene) return
   clearMarkers()
+  introStart = -1 // 重放开场点亮
   const items = props.attractions || []
   const pos = positionsFor(items.length)
 
@@ -301,10 +305,10 @@ function onMove(e: MouseEvent | TouchEvent) {
     tYaw += dx * 0.006; tPitch = Math.max(-1.15, Math.min(1.15, tPitch + dy * 0.006)); idle = 0 }
 }
 function onUp() { dragging = false }
-function onWheel(e: WheelEvent) { camDist = Math.max(11, Math.min(30, camDist + e.deltaY * 0.012)); e.preventDefault() }
-function onClick() { if (moved) return; const i = pick(); if (i >= 0) { imgFailed.value = false; selected.value = i } else closeCard() }
+function onWheel(e: WheelEvent) { camDistTarget = Math.max(11, Math.min(30, camDistTarget + e.deltaY * 0.012)); e.preventDefault() }
+function onClick() { if (moved) return; const i = pick(); if (i >= 0) { imgFailed.value = false; selected.value = i; camDistTarget = 13.5 } else closeCard() }
 
-function closeCard() { selected.value = -1 }
+function closeCard() { selected.value = -1; camDistTarget = 18 }
 function onImgError() { imgFailed.value = true }
 function emitSelectDay(d: number) { emit('select-day', d) }
 
@@ -312,6 +316,9 @@ function loop() {
   rafId = requestAnimationFrame(loop)
   if (!renderer || !scene || !camera || !root) return
   const t = clock.getElapsedTime(); idle += 0.016
+  if (introStart < 0) introStart = t
+  const ip = Math.min(1, (t - introStart) / 2.4) // 开场推进 0→1
+  camDist += (camDistTarget - camDist) * 0.06
   if (!dragging && idle > 1.4) tYaw += 0.0011 * 60 * 0.016
   yaw += (tYaw - yaw) * 0.07; pitch += (tPitch - pitch) * 0.07
   const cp = Math.cos(pitch), sp = Math.sin(pitch), cy = Math.cos(yaw), sy = Math.sin(yaw)
@@ -334,18 +341,24 @@ function loop() {
     const ud = (g as any).userData
     const active = i === hovered || i === selected.value
     const pulse = 1 + Math.sin(t * 1.6 + ud.phase) * 0.05
-    ud.bead.scale.setScalar((active ? 1.5 : 1) * pulse)
-    ud.bead.material.emissiveIntensity = active ? 0.85 : 0.55
-    ud.glow.scale.setScalar((active ? 1.9 : 1.15) * pulse)
-    ud.glow.material.opacity = active ? 0.6 : 0.35
+    // 开场按序点亮
+    const sipRaw = (ip - i * 0.08) / 0.24
+    const sip = sipRaw <= 0 ? 0 : sipRaw >= 1 ? 1 : sipRaw * sipRaw * (3 - 2 * sipRaw)
+    ud.bead.scale.setScalar((active ? 1.5 : 1) * pulse * sip)
+    ud.bead.material.emissiveIntensity = (active ? 0.85 : 0.55) * sip
+    ud.glow.scale.setScalar((active ? 1.9 : 1.15) * pulse * sip)
+    ud.glow.material.opacity = (active ? 0.6 : 0.35) * sip
     ud.ringM.rotation.z = t * 0.6 + i; ud.ring2.rotation.z = -t * 0.4 + i
+    ;(ud.ringM.material as THREE.MeshPhongMaterial).opacity = 0.9 * sip
+    ;(ud.ring2.material as THREE.MeshPhongMaterial).opacity = 0.6 * sip
     // label projection
     if (host && labelEls[i] && camera) {
       vTmp.copy(g.position).project(camera)
       const lb = labelEls[i]
-      if (vTmp.z > 1) { lb.style.display = 'none' }
+      if (vTmp.z > 1 || sip < 0.2) { lb.style.display = 'none' }
       else {
         lb.style.display = 'block'
+        lb.style.opacity = ip < 1 ? String(sip) : ''
         lb.style.left = `${(vTmp.x * 0.5 + 0.5) * host.clientWidth}px`
         lb.style.top = `${(-vTmp.y * 0.5 + 0.5) * host.clientHeight - 26}px`
         lb.className = 'lab' + (active ? ' on' : (selected.value >= 0 ? ' dim' : ''))
@@ -498,6 +511,12 @@ onBeforeUnmount(() => {
 }
 .orrery-atlas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: .9; }
 .orrery-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+.orrery-scan {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2; mix-blend-mode: multiply; opacity: .5;
+  background:
+    repeating-linear-gradient(to bottom, rgba(36,29,24,.05) 0, rgba(36,29,24,.05) 1px, transparent 2px, transparent 4px),
+    radial-gradient(120% 100% at 50% 50%, transparent 58%, rgba(31,84,96,.14) 88%, rgba(36,29,24,.22) 100%);
+}
 .orrery-frame { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .orrery-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
 
