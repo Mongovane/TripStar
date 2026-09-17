@@ -1,8 +1,6 @@
 """POI相关API路由"""
 
-import httpx
-from urllib.parse import urlparse
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from ...services.amap_service import get_amap_service
@@ -132,47 +130,3 @@ async def get_attraction_photo(name: str, city: Optional[str] = None):
             detail=f"获取景点图片失败: {str(e)}"
         )
 
-
-# 允许被代理的图片域名（小红书 CDN），防止被当作开放代理（SSRF）
-_ALLOWED_IMAGE_HOSTS = ("xhscdn.com", "xiaohongshu.com")
-
-
-@router.get(
-    "/image-proxy",
-    summary="景点图片代理",
-    description="带 Referer 转发小红书图片，绕过其防盗链，使前端 <img> 能正常加载",
-)
-async def image_proxy(url: str):
-    """代理小红书图片：后端携带正确 Referer 抓取后回传，规避防盗链 403。"""
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise HTTPException(status_code=400, detail="非法的图片地址")
-    host = (parsed.hostname or "").lower()
-    if not any(host == h or host.endswith("." + h) for h in _ALLOWED_IMAGE_HOSTS):
-        raise HTTPException(status_code=400, detail="不允许代理该域名的图片")
-
-    headers = {
-        "Referer": "https://www.xiaohongshu.com/",
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-        ),
-    }
-    try:
-        async with httpx.AsyncClient(timeout=10, trust_env=False, follow_redirects=True) as client:
-            resp = await client.get(url, headers=headers)
-        if resp.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"上游图片返回 {resp.status_code}")
-        media_type = resp.headers.get("content-type", "image/jpeg")
-        if not media_type.startswith("image/"):
-            media_type = "image/jpeg"
-        return Response(
-            content=resp.content,
-            media_type=media_type,
-            headers={"Cache-Control": "public, max-age=86400"},
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ 图片代理失败: {e}")
-        raise HTTPException(status_code=502, detail=f"图片代理失败: {e}")

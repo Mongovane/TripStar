@@ -1827,11 +1827,7 @@ const loadAttractionPhotos = async () => {
         )
         const data = await response.json()
         if (data.success && data.data.photo_url) {
-          const raw = data.data.photo_url as string
-          // 小红书图片有 Referer 防盗链，经后端图片代理加载以规避 403
-          attractionPhotos.value[name] = /^https?:\/\//i.test(raw)
-            ? `${apiBase}/api/poi/image-proxy?url=${encodeURIComponent(raw)}`
-            : raw
+          attractionPhotos.value[name] = data.data.photo_url
         }
       } catch (err) {
         console.error(`获取${name}图片失败:`, err)
