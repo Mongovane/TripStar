@@ -99,10 +99,15 @@ function ripple(px: number, py: number) {
   window.setTimeout(() => r.remove(), 520)
 }
 
-// 点页面任意位置 → 走过去（排除小鸭自己和聊天面板）
+// 点页面任意位置 → 走过去（排除小鸭自己、聊天面板、以及各类交互控件，避免干扰操作）
 function onDocClick(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (target.closest('#travel-buddy') || target.closest('.ai-chat-floating')) return
+  if (!target || !target.closest) return
+  if (target.closest(
+    '#travel-buddy, .ai-chat-floating, button, a, input, textarea, select, ' +
+    '.ant-btn, .ant-select, .ant-menu, .ant-picker, .ant-input, ' +
+    '.top-switch-menu, .top-switch-actions, .landing-navbar, [role="button"], [role="tab"]'
+  )) return
   tx = Math.max(34, Math.min(W - 34, e.clientX))
   ty = Math.max(H * 0.24, Math.min(H - 30, e.clientY))
   ripple(e.clientX, e.clientY)

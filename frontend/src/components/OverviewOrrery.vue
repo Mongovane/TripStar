@@ -315,6 +315,8 @@ function emitSelectDay(d: number) { emit('select-day', d) }
 function loop() {
   rafId = requestAnimationFrame(loop)
   if (!renderer || !scene || !camera || !root) return
+  // 被 v-show 隐藏（切到其它标签）时暂停渲染，避免隐藏画布仍持续吃 GPU
+  if (!rootRef.value || rootRef.value.offsetParent === null) return
   const t = clock.getElapsedTime(); idle += 0.016
   if (introStart < 0) introStart = t
   const ip = Math.min(1, (t - introStart) / 2.4) // 开场推进 0→1
