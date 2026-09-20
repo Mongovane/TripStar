@@ -3106,7 +3106,6 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
   font-weight: bold;
   font-size: 14px;
   box-shadow: 0 4px 12px rgba(215, 110, 66, 0.3);
-  backdrop-filter: blur(10px);
 }
 
 /* 预约提醒样式 */
@@ -4204,7 +4203,6 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 :deep(.ant-card) {
   border-radius: 16px;
   background: var(--paper-2) !important;
-  backdrop-filter: blur(20px);
   border: 1px solid var(--line) !important;
   box-shadow: 0 8px 32px rgba(36, 29, 24, 0.12);
   margin-bottom: 20px;
@@ -4514,7 +4512,6 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 :deep(.landing-navbar) {
   background: rgba(244, 238, 225, 0.86) !important;
   border-bottom: 1px solid var(--line) !important;
-  backdrop-filter: blur(10px);
 }
 :deep(.landing-brand) { color: var(--ink) !important; letter-spacing: .01em; }
 :deep(.landing-nav .nav-link),
