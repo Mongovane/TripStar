@@ -2,6 +2,16 @@
   <div ref="rootRef" class="orrery">
     <div class="orrery-nebula"></div>
 
+    <!-- 旋转铜环 + 公转行星：独立图层，整层作为位图被 GPU 旋转（合成器处理，不逐帧重绘） -->
+    <svg class="orrery-rings" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <ellipse cx="400" cy="270" rx="238" ry="96" fill="none" :stroke="AURORA[0]" stroke-width="3" opacity=".8" />
+      <ellipse cx="400" cy="270" rx="150" ry="234" fill="none" :stroke="AURORA[1]" stroke-width="3" opacity=".75" transform="rotate(24 400 270)" />
+      <ellipse cx="400" cy="270" rx="210" ry="150" fill="none" :stroke="AURORA[2]" stroke-width="2.5" opacity=".7" transform="rotate(-18 400 270)" />
+      <circle cx="496" cy="270" r="6" :fill="AURORA[2]" />
+      <circle cx="556" cy="270" r="7.5" :fill="AURORA[0]" />
+      <circle cx="605" cy="270" r="5.5" :fill="AURORA[1]" />
+    </svg>
+
     <svg class="orrery-chart" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid meet">
       <!-- ===== 底盘：天球分度盘（静态墨线）===== -->
       <g class="dial" fill="none" stroke="rgba(36,29,24,.16)">
@@ -37,20 +47,8 @@
         <circle v-for="(bs,i) in bgStars" :key="`bg-${i}`" :cx="bs.x" :cy="bs.y" :r="bs.r" />
       </g>
 
-      <!-- ===== 炫彩层（CSS 流光变色）===== -->
+      <!-- ===== 炫彩层（静态宝石色）===== -->
       <g class="jewel">
-        <!-- 旋转的宝石环 -->
-        <g class="ring-spin">
-          <ellipse :cx="CX" :cy="CY" rx="238" ry="96" fill="none" :stroke="AURORA[0]" stroke-width="3" opacity=".8" />
-          <ellipse :cx="CX" :cy="CY" rx="150" ry="234" fill="none" :stroke="AURORA[1]" stroke-width="3" opacity=".75" transform="rotate(24 400 270)" />
-          <ellipse :cx="CX" :cy="CY" rx="210" ry="150" fill="none" :stroke="AURORA[2]" stroke-width="2.5" opacity=".7" transform="rotate(-18 400 270)" />
-        </g>
-
-        <!-- 公转行星 -->
-        <g class="orbit orbit-1"><circle :cx="CX+96" :cy="CY" r="6" :fill="AURORA[2]" class="planet" /></g>
-        <g class="orbit orbit-2"><circle :cx="CX+156" :cy="CY" r="7.5" :fill="AURORA[0]" class="planet" /></g>
-        <g class="orbit orbit-3"><circle :cx="CX+205" :cy="CY" r="5.5" :fill="AURORA[1]" class="planet" /></g>
-
         <!-- 中心日核 -->
         <circle :cx="CX" :cy="CY" r="26" class="sun-glow" :fill="AURORA[3]" />
         <circle :cx="CX" :cy="CY" r="11" class="sun" :fill="AURORA[3]" />
@@ -206,10 +204,13 @@ function go(d: number) { emit('select-day', d) }
 /* 炫彩由静态宝石色呈现（不再用逐帧 filter: hue-rotate，避免整块重绘卡顿） */
 .jewel { transform-origin: center; }
 
-/* 铜环/行星保持静态：SVG 旋转会走主线程重绘、拖低帧率。静态 SVG 只绘制一次，几乎零开销 */
-.ring-spin { transform-box: view-box; transform-origin: 400px 270px; }
-.orbit { transform-box: view-box; transform-origin: 400px 270px; }
-.planet { }
+/* 旋转环层：整层被提升为合成层，GPU 旋转位图，不触发逐帧重绘（既动又不卡） */
+.orrery-rings {
+  position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;
+  transform-origin: center; will-change: transform; animation: orr-spin 100s linear infinite;
+}
+@keyframes orr-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .orrery-rings { animation: none; } }
 .sun { animation: orr-sun 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 .sun-glow { opacity: .4; animation: orr-sunglow 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes orr-sun { 0%,100% { opacity: 1; } 50% { opacity: .82; } }

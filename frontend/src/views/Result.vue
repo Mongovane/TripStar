@@ -227,13 +227,7 @@
 
         <!-- 知识图谱 -->
         <a-card v-show="activeSection === 'knowledge-graph'" id="knowledge-graph" :bordered="false" class="kg-card section-shellless">
-          <div id="kg-chart-container" style="width: 100%; height: 600px;"></div>
-          <div class="kg-legend">
-            <span v-for="cat in graphCategories" :key="cat.name" class="kg-legend-item">
-              <span class="kg-legend-dot" :style="getKgLegendDotStyle(cat.name)"></span>
-              {{ getCategoryLabel(cat.name) }}
-            </span>
-          </div>
+          <KnowledgeGraph :data="graphData" />
         </a-card>
 
         <!-- 每日行程:可折叠 -->
@@ -570,9 +564,9 @@ import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import AMapLoader from '@amap/amap-jsapi-loader'
 import { Loader as GoogleMapsLoader } from '@googlemaps/js-api-loader'
-import type * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
 import OverviewOrrery from '@/components/OverviewOrrery.vue'
+import KnowledgeGraph from '@/components/KnowledgeGraph.vue'
 import AIChat from '@/components/AIChat.vue'
 import TravelBuddy from '@/components/TravelBuddy.vue'
 import type { TripPlan, TripPlanResponse, KnowledgeGraphData, GraphCategory, Attraction, Meal, Hotel, WeatherInfo } from '@/types'
@@ -838,7 +832,7 @@ const overviewAttractions = computed<OverviewAttractionItem[]>(() => {
 // 知识图谱相关
 const graphData = ref<KnowledgeGraphData | null>(null)
 const graphCategories = ref<GraphCategory[]>([])
-let kgChart: echarts.ECharts | null = null
+let kgChart: any = null
 let kgResizeHandler: (() => void) | null = null
 
 const applyTripPlanPayload = async (payload: {
@@ -2054,166 +2048,7 @@ const exportAsImage = async () => {
 }
 // ========== 知识图谱初始化 ==========
 const initKnowledgeGraph = async () => {
-  if (!graphData.value) return
-
-  const container = document.getElementById('kg-chart-container')
-  if (!container) return
-
-  // 按需加载 echarts（约 1MB，只在打开知识图谱时才拉取）
-  const echartsRuntime = await import('echarts')
-
-  // 如果已存在实例则销毁
-  if (kgChart) {
-    kgChart.dispose()
-  }
-
-  kgChart = echartsRuntime.init(container, 'grey')
-  const containerWidth = Math.max(container.clientWidth, 320)
-  const containerHeight = Math.max(container.clientHeight, 320)
-  const nodesWithVisual = graphData.value.nodes.map((node) => {
-    const rawSize = Number(node.symbolSize) || 40
-    const categoryName = graphData.value?.categories?.[Number(node.category)]?.name || ''
-    const visual = getKgNodeVisualPreset(rawSize, categoryName)
-    return {
-      ...node,
-      __visual: visual,
-    }
-  })
-  const boundaryPositionMap = buildKgBoundaryPositionMap(
-    nodesWithVisual,
-    graphData.value.edges,
-    graphData.value.categories,
-    containerWidth,
-    containerHeight
-  )
-  const kgForceGravity = containerWidth < 500 ? 0.2 : 0.06
-  const kgForceRepulsion = containerWidth < 500 ? 360 : 520
-  const kgForceEdgeLength: [number, number] = containerWidth < 500 ? [60, 140] : [95, 220]
-
-  const option: echarts.EChartsOption = {
-    backgroundColor: 'transparent',
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(12, 23, 32, 0.94)',
-      borderColor: 'rgba(215, 110, 66, 0.35)',
-      borderWidth: 1,
-      padding: [12, 16],
-      textStyle: { color: '#fff', fontSize: 13 },
-      formatter: (params: any) => {
-        if (params.dataType === 'node') {
-          const catName = graphData.value?.categories[params.data.category]?.name || ''
-          const cat = getCategoryLabel(catName)
-          let tip = `<b style="color:#ffe3d6;font-size:15px">${params.data.name}</b><br/>`
-          tip += `<span style="color:#aaa">${t('result.graph.type')}:</span>${cat}<br/>`
-          if (params.data.value) {
-            tip += `<span style="color:#aaa">${t('result.graph.detail')}:</span>${params.data.value}`
-          }
-          return tip
-        }
-        if (params.dataType === 'edge') {
-          return `<span style="color:#ffe3d6">${params.data.label || t('result.graph.relation')}</span>`
-        }
-        return ''
-      }
-    },
-    legend: {
-      show: false  // 使用自定义legend
-    },
-    animationDuration: 1500,
-    animationEasingUpdate: 'quinticInOut',
-    series: [
-      {
-        type: 'graph',
-        layout: 'force',
-        data: nodesWithVisual.map(node => {
-          const visual = node.__visual as KgNodeVisualPreset
-          const nodeSymbol = getKgNodeSymbol(visual)
-          const point = boundaryPositionMap.get(String(node.id))
-          const labelFontSize = visual.size >= 140 ? 10 : visual.size >= 110 ? 9 : 8
-          const labelMaxChars = visual.size >= 140 ? 7 : visual.size >= 110 ? 6 : 5
-          const labelWidth = Math.round(visual.size * 0.52)
-
-          return {
-            ...node,
-            x: point?.x ?? containerWidth / 2,
-            y: point?.y ?? containerHeight / 2,
-            fixed: Boolean(point && point.x === containerWidth / 2 && point.y === containerHeight / 2),
-            symbol: nodeSymbol,
-            symbolSize: visual.size,
-            itemStyle: {
-              ...(node.itemStyle || {}),
-              borderColor: 'rgba(0, 0, 0, 0)',
-              borderWidth: 0,
-              shadowBlur: 0,
-              shadowColor: 'rgba(0, 0, 0, 0)',
-            },
-            label: {
-              show: visual.size >= 60,
-              position: 'inside' as const,
-              distance: 0,
-              fontSize: labelFontSize,
-              width: labelWidth,
-              overflow: 'truncate',
-              ellipsis: '…',
-              align: 'center' as const,
-              verticalAlign: 'middle' as const,
-              lineHeight: labelFontSize + 2,
-              color: '#fff',
-              fontWeight: 'bold' as const,
-              formatter: (params: any) => {
-                const name = String(params.data.name || '')
-                return name.length > labelMaxChars ? name.slice(0, labelMaxChars) + '…' : name
-              },
-            },
-          }
-        }),
-        links: graphData.value.edges.map(edge => ({
-          ...edge,
-          lineStyle: {
-            color: 'rgba(255, 255, 255, 0.15)',
-            width: 1.5,
-            curveness: 0.1,
-          },
-          label: {
-            show: true,
-            formatter: edge.label || '',
-            fontSize: 10,
-            color: 'rgba(255, 255, 255, 0.45)',
-          },
-        })),
-        categories: graphData.value.categories,
-        roam: true,
-        draggable: true,
-        force: {
-          initLayout: 'none',
-          repulsion: kgForceRepulsion,
-          gravity: kgForceGravity,
-          edgeLength: kgForceEdgeLength,
-          friction: 0.2,
-          layoutAnimation: true,
-        },
-        emphasis: {
-          focus: 'adjacency',
-          lineStyle: { width: 4, color: '#d76e42' },
-          itemStyle: { borderColor: '#d76e42', borderWidth: 3 },
-        },
-        edgeSymbol: ['none', 'arrow'],
-        edgeSymbolSize: [0, 8],
-      },
-    ],
-  }
-
-  kgChart.setOption(option)
-
-  // 响应窗口变化：重算边界偏置坐标，防止节点越界
-  if (kgResizeHandler) {
-    window.removeEventListener('resize', kgResizeHandler)
-  }
-  kgResizeHandler = () => {
-    if (!graphData.value) return
-    initKnowledgeGraph()
-  }
-  window.addEventListener('resize', kgResizeHandler)
+  // 知识图谱已改用原生 SVG 组件 KnowledgeGraph.vue（不再用 echarts）
 }
 
 const escapeHtml = (value: unknown): string => {
