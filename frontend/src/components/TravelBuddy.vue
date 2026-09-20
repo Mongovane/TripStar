@@ -56,8 +56,7 @@ let W = window.innerWidth, H = window.innerHeight
 let x = W / 2, y = H * 0.62, tx = x, ty = y
 let rafId = 0
 let lastStep = 0
-let idleMs = 0
-let lastT = 0
+let napTimer = 0
 let blinkTimer = 0
 let bubbleTimer = 0
 // pointer (tap vs drag)
@@ -78,7 +77,16 @@ function say(text: string, ms = 1400) {
 
 function wake() {
   if (sleeping.value) { sleeping.value = false; say('嗯？我醒啦～', 1200) }
-  idleMs = 0
+  clearTimeout(napTimer)
+}
+
+function scheduleNap() {
+  clearTimeout(napTimer)
+  napTimer = window.setTimeout(() => { sleeping.value = true; say('呼…呼…💤', 1600) }, 11000)
+}
+
+function ensureLoop() {
+  if (!rafId) rafId = requestAnimationFrame(loop)
 }
 
 function footprint() {
@@ -112,6 +120,7 @@ function onDocClick(e: MouseEvent) {
   ty = Math.max(H * 0.24, Math.min(H - 30, e.clientY))
   ripple(e.clientX, e.clientY)
   wake()
+  ensureLoop()
 }
 
 function onPointerDown(e: PointerEvent) {
@@ -131,30 +140,29 @@ function onPointerUp(e: PointerEvent) {
     say(quacks[Math.floor(Math.random() * quacks.length)], 1200)
     happy.value = false; requestAnimationFrame(() => { happy.value = true })
   }
+  scheduleNap()
 }
 
 function onResize() { W = window.innerWidth; H = window.innerHeight }
 
-function loop(now: number) {
-  rafId = requestAnimationFrame(loop)
-  const dt = lastT ? now - lastT : 16
-  lastT = now
-
+function loop() {
   const dx = tx - x, dy = ty - y, d = Math.hypot(dx, dy)
   if (d > 2 && !sleeping.value) {
     const step = Math.min(3.1, d)
     x += (dx / d) * step; y += (dy / d) * step
     if (Math.abs(dx) > 0.6) { const nf = dx < 0 ? -1 : 1; if (nf !== facing.value) facing.value = nf }
     isWalking.value = true
-    idleMs = 0
+    const now = performance.now()
     if (now - lastStep > 200) { footprint(); lastStep = now }
+    place()
+    rafId = requestAnimationFrame(loop)
   } else {
+    // 到达/静止：停掉动画循环，交给计时器打盹（不再逐帧空转）
     isWalking.value = false
-    idleMs += dt
-    // 久了打个盹
-    if (!sleeping.value && idleMs > 11000) { sleeping.value = true; say('呼…呼…💤', 1600) }
+    place()
+    rafId = 0
+    if (!sleeping.value) scheduleNap()
   }
-  place()
 }
 
 onMounted(() => {
@@ -166,16 +174,18 @@ onMounted(() => {
     if (sleeping.value || !rootRef.value) return
     if (Math.random() < 0.6) { rootRef.value.classList.add('blink'); window.setTimeout(() => rootRef.value && rootRef.value.classList.remove('blink'), 130) }
   }, 2600)
-  rafId = requestAnimationFrame(loop)
+  scheduleNap()
   window.setTimeout(() => say('嗨，我陪你逛！', 2200), 800)
 })
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(rafId)
+  rafId = 0
   document.removeEventListener('click', onDocClick)
   window.removeEventListener('resize', onResize)
   clearInterval(blinkTimer)
   clearTimeout(bubbleTimer)
+  clearTimeout(napTimer)
 })
 </script>
 

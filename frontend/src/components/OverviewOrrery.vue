@@ -205,29 +205,26 @@ function go(d: number) { emit('select-day', d) }
 }
 .orrery-chart { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 
-/* 炫彩流光：整层缓慢色相流转 */
-.jewel { animation: orr-hue 26s linear infinite; transform-origin: center; }
-@keyframes orr-hue { to { filter: hue-rotate(360deg); } }
+/* 炫彩由静态宝石色呈现（不再用逐帧 filter: hue-rotate，避免整块重绘卡顿） */
+.jewel { transform-origin: center; }
 
-.ring-spin { transform-box: view-box; transform-origin: 400px 270px; animation: orr-spin 60s linear infinite; }
+.ring-spin { transform-box: view-box; transform-origin: 400px 270px; animation: orr-spin 90s linear infinite; will-change: transform; }
 @keyframes orr-spin { to { transform: rotate(360deg); } }
 
-.orbit { transform-box: view-box; transform-origin: 400px 270px; }
+.orbit { transform-box: view-box; transform-origin: 400px 270px; will-change: transform; }
 .orbit-1 { animation: orr-spin 14s linear infinite; }
 .orbit-2 { animation: orr-spin 22s linear infinite reverse; }
 .orbit-3 { animation: orr-spin 30s linear infinite; }
-.planet { filter: drop-shadow(0 0 4px currentColor); }
-
+.planet { }
 .sun { animation: orr-sun 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-.sun-glow { opacity: .4; animation: orr-sunglow 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.sun-glow { opacity: .4; animation: orr-sunglow 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes orr-sun { 0%,100% { opacity: 1; } 50% { opacity: .82; } }
-@keyframes orr-sunglow { 0%,100% { transform: scale(1); opacity: .4; } 50% { transform: scale(1.25); opacity: .22; } }
+@keyframes orr-sunglow { 0%,100% { transform: scale(1); opacity: .4; } 50% { transform: scale(1.22); opacity: .24; } }
 
 .star-node { cursor: pointer; outline: none; }
-.star-halo { opacity: .18; transform-box: fill-box; transform-origin: center; }
-.star-core { transform-box: fill-box; transform-origin: center; animation: orr-star 2.6s ease-in-out infinite; filter: drop-shadow(0 0 3px currentColor); }
-@keyframes orr-star { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
-.star-node:hover .star-halo, .star-node.on .star-halo { opacity: .34; transform: scale(1.25); }
+.star-halo { opacity: .2; transform-box: fill-box; transform-origin: center; transition: opacity .2s, transform .2s; }
+.star-core { transform-box: fill-box; transform-origin: center; transition: transform .2s; }
+.star-node:hover .star-halo, .star-node.on .star-halo { opacity: .38; transform: scale(1.3); }
 .star-node:hover .star-core, .star-node.on .star-core { transform: scale(1.5); }
 .star-label { pointer-events: none; opacity: .85; }
 .star-node:hover .star-label, .star-node.on .star-label { opacity: 1; }
