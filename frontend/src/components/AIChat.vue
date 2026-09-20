@@ -260,10 +260,9 @@ const sendChatMessage = async () => {
   transform: scale(0.3);
 }
 
-/* 由行走小鸭触发时：关闭态隐藏原光球，打开态正常显示聊天面板 */
+/* 由行走小鸭触发时：关闭态彻底隐藏原光球（display:none 停掉其旋转大模糊球的持续渲染，避免白烧 GPU 拖慢全局）；打开态正常显示聊天面板 */
 .ai-chat-floating.hide-trigger .container-wrap:not(.open) {
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 
 .container-ai-input {
