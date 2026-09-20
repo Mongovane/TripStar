@@ -193,10 +193,8 @@ function go(d: number) { emit('select-day', d) }
 @media (max-width: 640px) { .orrery { height: 420px; } }
 .orrery::after {
   content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3;
-  background:
-    repeating-linear-gradient(to bottom, rgba(36,29,24,.045) 0, rgba(36,29,24,.045) 1px, transparent 2px, transparent 4px),
-    radial-gradient(circle, rgba(36,29,24,.05) 1px, transparent 1px);
-  background-size: 100% 4px, 22px 22px; opacity: .5; mix-blend-mode: multiply;
+  background: radial-gradient(circle, rgba(36,29,24,.045) 1px, transparent 1px);
+  background-size: 22px 22px; opacity: .4;
 }
 .orrery-nebula {
   position: absolute; inset: 0; pointer-events: none; z-index: 0;
@@ -208,13 +206,9 @@ function go(d: number) { emit('select-day', d) }
 /* 炫彩由静态宝石色呈现（不再用逐帧 filter: hue-rotate，避免整块重绘卡顿） */
 .jewel { transform-origin: center; }
 
-.ring-spin { transform-box: view-box; transform-origin: 400px 270px; animation: orr-spin 90s linear infinite; will-change: transform; }
-@keyframes orr-spin { to { transform: rotate(360deg); } }
-
-.orbit { transform-box: view-box; transform-origin: 400px 270px; will-change: transform; }
-.orbit-1 { animation: orr-spin 14s linear infinite; }
-.orbit-2 { animation: orr-spin 22s linear infinite reverse; }
-.orbit-3 { animation: orr-spin 30s linear infinite; }
+/* 铜环/行星保持静态：SVG 旋转会走主线程重绘、拖低帧率。静态 SVG 只绘制一次，几乎零开销 */
+.ring-spin { transform-box: view-box; transform-origin: 400px 270px; }
+.orbit { transform-box: view-box; transform-origin: 400px 270px; }
 .planet { }
 .sun { animation: orr-sun 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 .sun-glow { opacity: .4; animation: orr-sunglow 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }

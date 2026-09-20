@@ -56,6 +56,7 @@ let W = window.innerWidth, H = window.innerHeight
 let x = W / 2, y = H * 0.62, tx = x, ty = y
 let rafId = 0
 let lastStep = 0
+let lastT = 0
 let napTimer = 0
 let blinkTimer = 0
 let bubbleTimer = 0
@@ -145,15 +146,17 @@ function onPointerUp(e: PointerEvent) {
 
 function onResize() { W = window.innerWidth; H = window.innerHeight }
 
-function loop() {
+function loop(now?: number) {
+  const ts = now ?? performance.now()
+  const dt = lastT ? Math.min(ts - lastT, 50) : 16
+  lastT = ts
   const dx = tx - x, dy = ty - y, d = Math.hypot(dx, dy)
   if (d > 2 && !sleeping.value) {
-    const step = Math.min(3.1, d)
+    const step = Math.min(0.19 * dt, d) // 恒定 ~190 px/秒，与帧率无关
     x += (dx / d) * step; y += (dy / d) * step
     if (Math.abs(dx) > 0.6) { const nf = dx < 0 ? -1 : 1; if (nf !== facing.value) facing.value = nf }
     isWalking.value = true
-    const now = performance.now()
-    if (now - lastStep > 200) { footprint(); lastStep = now }
+    if (ts - lastStep > 200) { footprint(); lastStep = ts }
     place()
     rafId = requestAnimationFrame(loop)
   } else {
@@ -161,6 +164,7 @@ function loop() {
     isWalking.value = false
     place()
     rafId = 0
+    lastT = 0
     if (!sleeping.value) scheduleNap()
   }
 }
