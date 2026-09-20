@@ -24,11 +24,12 @@
         <g v-for="n in laid" :key="n.id" class="kg-node"
           :class="{ dim: hovered && !nodeActive(n.id), on: hovered === n.id }"
           @pointerenter="hovered = n.id" @click="hovered = hovered === n.id ? '' : n.id">
+          <title>{{ n.name }}{{ n.value ? ' · ' + n.value : '' }}</title>
           <circle :cx="n.x" :cy="n.y" :r="n.r + 7" class="kg-halo" :fill="colorOf(n.category)" />
           <circle :cx="n.x" :cy="n.y" :r="n.r" :fill="colorOf(n.category)" class="kg-dot"
             stroke="rgba(255,255,255,.7)" stroke-width="1.5" />
           <text :x="n.x" :y="n.y + n.r + 13" text-anchor="middle" class="kg-label"
-            font-family="var(--mono,monospace)">{{ n.name }}</text>
+            font-family="var(--mono,monospace)">{{ hovered === n.id ? hoverLabel(n.name) : shortLabel(n.name) }}</text>
           <text v-if="n.value && hovered === n.id" :x="n.x" :y="n.y + n.r + 26" text-anchor="middle"
             class="kg-value" font-family="var(--mono,monospace)">{{ n.value }}</text>
         </g>
@@ -52,6 +53,10 @@ const hovered = ref('')
 // 暖色宝石调色板（按分类），与星盘/整站一致，避免深色 echarts 的隔离感
 const PALETTE = ['#C0562A', '#1F5460', '#B08637', '#7C6FE0', '#4FC58E', '#D96FA0', '#2FB4C9', '#E0705A']
 const colorOf = (cat: number) => PALETTE[((cat || 0) % PALETTE.length + PALETTE.length) % PALETTE.length]
+
+const trunc = (s: string, n: number) => (s && s.length > n ? s.slice(0, n) + '…' : s)
+const shortLabel = (name: string) => trunc(name, 9)
+const hoverLabel = (name: string) => trunc(name, 22)
 
 const cats = ref<{ name: string }[]>([])
 type LaidNode = GraphNode & { x: number; y: number; r: number }
