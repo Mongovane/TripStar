@@ -564,16 +564,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, nextTick, watch, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import AMapLoader from '@amap/amap-jsapi-loader'
 import { Loader as GoogleMapsLoader } from '@googlemaps/js-api-loader'
-import html2canvas from 'html2canvas'
-import * as echarts from 'echarts'
+import type * as echarts from 'echarts'
 import NavBar from '@/components/NavBar.vue'
-import OverviewOrrery from '@/components/OverviewOrrery.vue'
+const OverviewOrrery = defineAsyncComponent(() => import('@/components/OverviewOrrery.vue'))
 import AIChat from '@/components/AIChat.vue'
 import TravelBuddy from '@/components/TravelBuddy.vue'
 import type { TripPlan, TripPlanResponse, KnowledgeGraphData, GraphCategory, Attraction, Meal, Hotel, WeatherInfo } from '@/types'
@@ -946,7 +945,7 @@ const ensureGraphReady = async () => {
   if (!graphData.value) return
   await nextTick()
   if (!kgChart) {
-    initKnowledgeGraph()
+    await initKnowledgeGraph()
     return
   }
   kgChart.resize()
@@ -1970,6 +1969,7 @@ const captureMapScreenshot = async (): Promise<string> => {
     // 等待一帧让渲染生效
     await new Promise(resolve => setTimeout(resolve, 300))
 
+    const html2canvas = (await import('html2canvas')).default
     const mapCanvas = await html2canvas(mapEl, {
       backgroundColor: '#1a1a2e',
       scale: 2,
@@ -2030,6 +2030,7 @@ const exportAsImage = async () => {
       )
     )
 
+    const html2canvas = (await import('html2canvas')).default
     const canvas = await html2canvas(exportContainer, {
       backgroundColor: '#f0f2f5',
       scale: 2,
@@ -2052,18 +2053,21 @@ const exportAsImage = async () => {
   }
 }
 // ========== 知识图谱初始化 ==========
-const initKnowledgeGraph = () => {
+const initKnowledgeGraph = async () => {
   if (!graphData.value) return
 
   const container = document.getElementById('kg-chart-container')
   if (!container) return
+
+  // 按需加载 echarts（约 1MB，只在打开知识图谱时才拉取）
+  const echartsRuntime = await import('echarts')
 
   // 如果已存在实例则销毁
   if (kgChart) {
     kgChart.dispose()
   }
 
-  kgChart = echarts.init(container, 'grey')
+  kgChart = echartsRuntime.init(container, 'grey')
   const containerWidth = Math.max(container.clientWidth, 320)
   const containerHeight = Math.max(container.clientHeight, 320)
   const nodesWithVisual = graphData.value.nodes.map((node) => {

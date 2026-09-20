@@ -13,6 +13,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from ..config import get_settings, validate_config, print_config
@@ -51,6 +52,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 开启 gzip 压缩（显著减小 JS/CSS 传输体积，缓解慢网加载）
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # 注册路由
 app.include_router(trip.router, prefix="/api")
