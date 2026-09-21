@@ -21,7 +21,7 @@
               rel="tooltip"
               title="Star on GitHub"
               data-placement="bottom"
-              href="https://github.com/1sdv/TripStar"
+              href="https://github.com/Mongovane/TripStar"
               target="_blank"
               style="display:inline-flex;align-items:center;gap:6px;"
             >

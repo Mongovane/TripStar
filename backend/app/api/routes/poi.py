@@ -106,10 +106,38 @@ async def proxy_attraction_image(name: Optional[str] = None, url: Optional[str] 
         get_photo_bytes_from_xhs,
     )
 
+    def _placeholder(label: str = "") -> Response:
+        """取图失败/Cookie 过期时的统一暖色占位图（与卡片深青星图一致），避免破图。"""
+        import html as _html
+        safe = _html.escape((label or "").strip())[:14]
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">'
+            '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
+            '<stop offset="0" stop-color="#1f4450"/><stop offset="1" stop-color="#14232a"/>'
+            '</linearGradient></defs>'
+            '<rect width="400" height="300" fill="url(#g)"/>'
+            '<path d="M200 116l7 19 20 .6-15.8 12.4 5.6 19.4L200 176l-16.4 11.4 5.6-19.4L173.2 155.6l20-.6z" '
+            'fill="#D9A441" opacity=".85"/>'
+            + (f'<text x="200" y="212" fill="#EBCB85" font-family="Georgia,serif" font-size="19" '
+               f'text-anchor="middle">{safe}</text>' if safe else '')
+            + '<text x="200" y="238" fill="rgba(234,224,203,.55)" font-family="monospace" '
+              'font-size="11" letter-spacing="1" text-anchor="middle">暂无实拍图</text>'
+            '</svg>'
+        )
+        return Response(
+            content=svg.encode("utf-8"),
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "public, max-age=600", "X-Image-Status": "fallback"},
+        )
+
     if name:
-        result = await get_photo_bytes_from_xhs(f"{name} 风景")
+        try:
+            result = await get_photo_bytes_from_xhs(f"{name} 风景")
+        except Exception as e:
+            print(f"⚠️ 景点图获取失败（占位兜底）: {name} - {e}")
+            result = None
         if result is None:
-            raise HTTPException(status_code=404, detail=f"未能获取 {name} 的景点图片")
+            return _placeholder(name)
         data, content_type = result
         return Response(
             content=data,
@@ -122,12 +150,9 @@ async def proxy_attraction_image(name: Optional[str] = None, url: Optional[str] 
             data, content_type = fetch_xhs_image_bytes(url)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        except XHSImageProxyError as e:
-            print(f"❌ 图片代理失败: {e}")
-            raise HTTPException(status_code=502, detail=str(e))
         except Exception as e:
-            print(f"❌ 图片代理异常: {e}")
-            raise HTTPException(status_code=502, detail=f"图片代理请求失败: {e}")
+            print(f"⚠️ 图片代理失败（占位兜底）: {e}")
+            return _placeholder()
         return Response(
             content=data,
             media_type=content_type,
