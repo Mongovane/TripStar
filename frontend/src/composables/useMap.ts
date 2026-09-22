@@ -334,24 +334,30 @@ const initGoogleMap = async (apiKey: string, generation: number) => {
     disableDefaultUI: true,
     zoomControl: true,
     styles: [
-      { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
-      { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
-      { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
-      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263c3f' }] },
-      { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#6b9a76' }] },
-      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#38414e' }] },
-      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#212a37' }] },
-      { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
-      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#746855' }] },
-      { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
-      { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#f3d19c' }] },
-      { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
-      { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#d59563' }] },
-      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
-      { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
-      { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#17263c' }] },
+      // Star Almanac 暖色古地图风：羊皮纸地、墨色地名、黄铜路网、柔和青水
+      { elementType: 'geometry', stylers: [{ color: '#EFE7D6' }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: '#5C4A37' }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: '#F4EEE1' }, { weight: 2 }] },
+      { elementType: 'labels.icon', stylers: [{ saturation: -60 }, { lightness: 10 }] },
+      { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#CDB78F' }] },
+      { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#95401A' }] },
+      { featureType: 'administrative.land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#A7967D' }] },
+      { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#E9E0CB' }] },
+      { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#8A7355' }] },
+      { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#D9DEC6' }] },
+      { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#6B7A56' }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#E4D6B8' }] },
+      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#D6C39A' }] },
+      { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6B5C4C' }] },
+      { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#E7D9B6' }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#E0C68A' }] },
+      { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#C9A96A' }] },
+      { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#7A5A2E' }] },
+      { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#DFD3B8' }] },
+      { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#95401A' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#BBD1CE' }] },
+      { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#4A6E70' }] },
+      { featureType: 'water', elementType: 'labels.text.stroke', stylers: [{ color: '#DCEBE8' }] },
     ],
   })
 
@@ -395,7 +401,7 @@ const addGoogleAttractionMarkers = async (generation: number) => {
     const markerText = `${attraction.dayIndex + 1}-${attraction.attrIndex + 1}`
     const svgIcon = `data:image/svg+xml;charset=UTF-8,` + encodeURIComponent(`
       <svg xmlns="http://www.w3.org/2000/svg" width="34" height="42" viewBox="0 0 34 42">
-        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.8 17 42 17 42C17 42 34 29.8 34 17C34 7.6 26.4 0 17 0Z" fill="#ff5722" stroke="#fff" stroke-width="2"/>
+        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.8 17 42 17 42C17 42 34 29.8 34 17C34 7.6 26.4 0 17 0Z" fill="#C0562A" stroke="#fff" stroke-width="2"/>
         <text x="17" y="22" font-family="sans-serif" font-size="12" font-weight="bold" fill="white" text-anchor="middle">${markerText}</text>
       </svg>
     `)
@@ -539,7 +545,7 @@ const initAMap = async () => {
       zoom: 12,
       center: [116.397128, 39.916527], // 默认中心点(北京)
       viewMode: '3D',
-      mapStyle: 'amap://styles/darkblue',
+      mapStyle: 'amap://styles/whitesmoke',
       // 开启 preserveDrawingBuffer 才能让 html2canvas 在 WebGL 下截屏成功！
       WebGLParams: {
         preserveDrawingBuffer: true
@@ -760,7 +766,7 @@ const captureMapScreenshot = async (): Promise<string> => {
 
     const html2canvas = (await import('html2canvas')).default
     const mapCanvas = await html2canvas(mapEl, {
-      backgroundColor: '#1a1a2e',
+      backgroundColor: '#EFE7D6',
       scale: 2,
       logging: false,
       useCORS: true,

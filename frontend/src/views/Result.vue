@@ -231,8 +231,18 @@
 
           <div class="right-map" v-show="activeSection === 'map'">
             <a-card id="map" :bordered="false" class="map-card section-shellless">
-              <div v-show="mapProviderType === 'google'" id="google-map-container" style="width: 100%; height: 100%"></div>
-              <div v-show="mapProviderType === 'amap'" id="amap-container" style="width: 100%; height: 100%"></div>
+              <div class="atlas-wrap">
+                <div v-show="mapProviderType === 'google'" id="google-map-container" style="width: 100%; height: 100%"></div>
+                <div v-show="mapProviderType === 'amap'" id="amap-container" style="width: 100%; height: 100%"></div>
+                <div class="atlas-frame" aria-hidden="true">
+                  <span class="atlas-eyebrow">THE ATLAS · 景点地图</span>
+                  <span class="atlas-compass">✦&nbsp;N</span>
+                  <span class="atlas-corner tl"></span>
+                  <span class="atlas-corner tr"></span>
+                  <span class="atlas-corner bl"></span>
+                  <span class="atlas-corner br"></span>
+                </div>
+              </div>
             </a-card>
           </div>
         </div>
@@ -2518,6 +2528,74 @@ const escapeHtml = (value: unknown): string => {
   overflow: hidden;
 }
 
+/* 年鉴地图外框：把地图框进 Star Almanac 制图风（不挡交互） */
+.atlas-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(36, 29, 24, 0.16), inset 0 0 44px rgba(36, 29, 24, 0.14);
+}
+.atlas-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.atlas-eyebrow {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-family: var(--mono, monospace);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rust, #C0562A);
+  background: rgba(251, 247, 238, 0.92);
+  border: 1px solid rgba(36, 29, 24, 0.14);
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.atlas-eyebrow::before {
+  content: '';
+  width: 18px;
+  height: 1px;
+  background: var(--rust, #C0562A);
+}
+.atlas-compass {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-family: var(--serif, Georgia, serif);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--rust, #C0562A);
+  background: rgba(251, 247, 238, 0.92);
+  border: 1px solid rgba(36, 29, 24, 0.14);
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.atlas-corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 0 solid var(--rust, #C0562A);
+  opacity: 0.7;
+}
+.atlas-corner.tl { top: 8px; left: 8px; border-top-width: 2px; border-left-width: 2px; }
+.atlas-corner.tr { top: 8px; right: 8px; border-top-width: 2px; border-right-width: 2px; }
+.atlas-corner.bl { bottom: 8px; left: 8px; border-bottom-width: 2px; border-left-width: 2px; }
+.atlas-corner.br { bottom: 8px; right: 8px; border-bottom-width: 2px; border-right-width: 2px; }
+
 .map-card :deep(.ant-card-body) {
   height: 100%;
   padding: 0;
@@ -3015,15 +3093,15 @@ const escapeHtml = (value: unknown): string => {
 .tripstar-map-marker__core {
   position: relative;
   z-index: 1;
-  width: 20px;
-  height: 20px;
-  /* border-radius: 50%; */
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* background: rgba(0, 0, 0, 0.86);
-  border: 1.2px solid rgba(255, 255, 255, 0.82);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45); */
+  background: var(--rust, #C0562A);
+  border: 1.5px solid #F4EEE1;
+  box-shadow: 0 3px 9px rgba(36, 29, 24, 0.4);
 }
 
 .tripstar-map-marker__icon {
@@ -3044,8 +3122,8 @@ const escapeHtml = (value: unknown): string => {
   font-size: 15px;
   font-weight: bold;
   line-height: 1;
-  color: #ffffff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  color: var(--ink, #241D18);
+  text-shadow: 0 1px 2px rgba(244, 238, 225, 0.95), 0 0 2px rgba(244, 238, 225, 0.95);
   white-space: nowrap;
   pointer-events: none;
 }
