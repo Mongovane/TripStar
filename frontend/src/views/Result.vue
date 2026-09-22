@@ -569,7 +569,7 @@ import OverviewOrrery from '@/components/OverviewOrrery.vue'
 import KnowledgeGraph from '@/components/KnowledgeGraph.vue'
 import AIChat from '@/components/AIChat.vue'
 import TravelBuddy from '@/components/TravelBuddy.vue'
-import type { TripPlan, TripPlanResponse, KnowledgeGraphData, GraphCategory, Attraction, Meal, Hotel, WeatherInfo } from '@/types'
+import type { TripPlan, TripPlanResponse, KnowledgeGraphData, Attraction, Meal, Hotel, WeatherInfo } from '@/types'
 import {
   getRuntimeApiBaseUrl,
   getRuntimeMapJsKey,
@@ -831,9 +831,6 @@ const overviewAttractions = computed<OverviewAttractionItem[]>(() => {
 
 // 知识图谱相关
 const graphData = ref<KnowledgeGraphData | null>(null)
-const graphCategories = ref<GraphCategory[]>([])
-let kgChart: any = null
-let kgResizeHandler: (() => void) | null = null
 
 const applyTripPlanPayload = async (payload: {
   plan: TripPlan
@@ -852,17 +849,14 @@ const applyTripPlanPayload = async (payload: {
 
   if (payload.graph) {
     graphData.value = payload.graph
-    graphCategories.value = payload.graph.categories || []
     sessionStorage.setItem('graphData', JSON.stringify(payload.graph))
   } else {
     graphData.value = null
-    graphCategories.value = []
     sessionStorage.removeItem('graphData')
   }
 
   await loadAttractionPhotos()
   if (activeSection.value === 'map') await ensureMapReady()
-  if (activeSection.value === 'knowledge-graph') await ensureGraphReady()
 }
 
 const restoreTripPlanFromResponse = async (response?: TripPlanResponse | null) => {
@@ -935,239 +929,6 @@ const handleRuntimeSettingsUpdated = () => {
   }
 }
 
-const ensureGraphReady = async () => {
-  if (!graphData.value) return
-  await nextTick()
-  if (!kgChart) {
-    await initKnowledgeGraph()
-    return
-  }
-  kgChart.resize()
-}
-
-const CATEGORY_KEY_MAP: Record<string, string> = {
-  // City
-  '城市': 'city', '都市': 'city', 'city': 'city',
-  // Schedule / Day
-  '日程': 'schedule', '行程': 'schedule', 'schedule': 'schedule',
-  'スケジュール': 'schedule',
-  // Attraction
-  '景点': 'attraction', '観光地': 'attraction', 'attraction': 'attraction',
-  // Hotel
-  '酒店': 'hotel', 'ホテル': 'hotel', 'hotel': 'hotel',
-  // Meal / Dining
-  '餐饮': 'meal', '食事': 'meal', 'meal': 'meal',
-  'dining': 'meal', 'グルメ': 'meal',
-  // Weather
-  '天气': 'weather', '天気': 'weather', 'weather': 'weather',
-  // Budget
-  '预算': 'budget', '予算': 'budget', 'budget': 'budget',
-  // Suggestion / Preference / Tips
-  '偏好/建议': 'suggestion', '好み/提案': 'suggestion',
-  'preference/suggestion': 'suggestion',
-  'tips': 'suggestion', 'おすすめ': 'suggestion',
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  city: '#4A90D9',
-  schedule: '#5B8FF9',
-  attraction: '#5AD8A6',
-  hotel: '#F6BD16',
-  meal: '#E8684A',
-  weather: '#6DC8EC',
-  budget: '#FF9845',
-  suggestion: '#B37FEB',
-}
-
-const normalizeCategoryKey = (name: string): string => {
-  const key = name.toLowerCase()
-  return CATEGORY_KEY_MAP[name] || CATEGORY_KEY_MAP[key] || name
-}
-
-const getCategoryColor = (name: string): string => {
-  const key = normalizeCategoryKey(name)
-  return CATEGORY_COLORS[key] || '#999'
-}
-
-const getCategoryLabel = (name: string): string => {
-  const key = normalizeCategoryKey(name)
-  if (key in CATEGORY_COLORS) {
-    return t(`result.graph.categories.${key}`)
-  }
-  return name
-}
-
-type KgNodeVisualPreset = {
-  size: number
-  gradientStart: string
-  gradientEnd: string | null
-}
-
-const KG_NODE_CATEGORY_COLORS: Record<string, { start: string; end: string | null }> = {
-  city: { start: '#0B3D91', end: '#5EEAD4' },
-  schedule: { start: '#0000FF', end: '#E06BE0' },
-  attraction: { start: '#0F7A32', end: '#C8FF6A' },
-  hotel: { start: '#f59e0b', end: '#fde68a' },
-  meal: { start: '#B91C1C', end: '#FDBA74' },
-  weather: { start: '#0369A1', end: '#BFDBFE' },
-  budget: { start: '#ea580c', end: '#fdba74' },
-  suggestion: { start: '#9333ea', end: '#f0abfc' },
-}
-
-const getKgCategoryPalette = (categoryName: string): { start: string; end: string | null } => {
-  const categoryKey = normalizeCategoryKey(categoryName || '')
-  return KG_NODE_CATEGORY_COLORS[categoryKey] || { start: getCategoryColor(categoryName), end: null }
-}
-
-const KG_NODE_SIZE_SCALE = 1.25
-
-const getKgNodeVisualPreset = (rawSize: number, categoryName: string): KgNodeVisualPreset => {
-  const baseSize = rawSize >= 70 ? 100 : rawSize >= 45 ? 80 : 60
-  const size = Math.round(baseSize * KG_NODE_SIZE_SCALE)
-  const palette = getKgCategoryPalette(categoryName)
-
-  return {
-    size,
-    gradientStart: palette.start,
-    gradientEnd: palette.end,
-  }
-}
-
-const kgNodeSymbolCache = new Map<string, string>()
-const kgLegendDotStyleCache = new Map<string, Record<string, string>>()
-
-const buildFeatherCircleSvgDataUrl = (size: number, start: string, end: string | null): string => {
-  const center = size / 2
-  const radius = Math.round(size * 0.34)
-  const gradientDef = end
-    ? `<linearGradient id="kgNodeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-         <stop offset="0%" stop-color="${start}" />
-         <stop offset="100%" stop-color="${end}" />
-       </linearGradient>`
-    : ''
-  const fillColor = end ? 'url(#kgNodeGradient)' : start
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-    <defs>
-      ${gradientDef}
-      <filter id="kgNodeBlur" x="-30%" y="-30%" width="160%" height="160%">
-        <feGaussianBlur stdDeviation="4" />
-      </filter>
-    </defs>
-    <circle cx="${center}" cy="${center}" r="${radius}" fill="${fillColor}" filter="url(#kgNodeBlur)" />
-  </svg>`
-
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
-}
-
-const getKgNodeSymbol = (visual: KgNodeVisualPreset): string => {
-  const cacheKey = `${visual.size}-${visual.gradientStart}-${visual.gradientEnd ?? 'solid'}`
-  const cachedSymbol = kgNodeSymbolCache.get(cacheKey)
-  if (cachedSymbol) return cachedSymbol
-
-  const symbol = `image://${buildFeatherCircleSvgDataUrl(visual.size, visual.gradientStart, visual.gradientEnd)}`
-  kgNodeSymbolCache.set(cacheKey, symbol)
-  return symbol
-}
-
-const getKgLegendDotStyle = (categoryName: string): Record<string, string> => {
-  const palette = getKgCategoryPalette(categoryName)
-  const cacheKey = `${palette.start}-${palette.end ?? 'solid'}`
-  const cachedStyle = kgLegendDotStyleCache.get(cacheKey)
-  if (cachedStyle) return cachedStyle
-
-  const dataUrl = buildFeatherCircleSvgDataUrl(24, palette.start, palette.end)
-  const style = { backgroundImage: `url("${dataUrl}")` }
-  kgLegendDotStyleCache.set(cacheKey, style)
-  return style
-}
-
-const buildKgBoundaryPositionMap = (
-  nodes: any[],
-  edges: any[],
-  categories: GraphCategory[],
-  width: number,
-  height: number
-): Map<string, { x: number; y: number }> => {
-  const nodeKey = (id: unknown): string => String(id)
-  const degreeMap = new Map<string, number>()
-
-  nodes.forEach((node) => degreeMap.set(nodeKey(node.id), 0))
-  edges.forEach((edge) => {
-    const sourceKey = nodeKey(edge.source)
-    const targetKey = nodeKey(edge.target)
-    degreeMap.set(sourceKey, (degreeMap.get(sourceKey) || 0) + 1)
-    degreeMap.set(targetKey, (degreeMap.get(targetKey) || 0) + 1)
-  })
-
-  let rootNodeKey = nodes.length > 0 ? nodeKey(nodes[0].id) : ''
-  let maxDegree = -1
-  nodes.forEach((node) => {
-    const key = nodeKey(node.id)
-    const degree = degreeMap.get(key) || 0
-    if (degree > maxDegree) {
-      maxDegree = degree
-      rootNodeKey = key
-    }
-  })
-
-  const groupedNodes = new Map<string, any[]>()
-  nodes.forEach((node) => {
-    const key = nodeKey(node.id)
-    if (key === rootNodeKey) return
-
-    const categoryName = categories?.[Number(node.category)]?.name || ''
-    const categoryKey = normalizeCategoryKey(categoryName || 'misc')
-    if (!groupedNodes.has(categoryKey)) groupedNodes.set(categoryKey, [])
-    groupedNodes.get(categoryKey)!.push(node)
-  })
-
-  const orderedGroupKeys = Array.from(groupedNodes.keys()).sort((a, b) => {
-    return (groupedNodes.get(b)?.length || 0) - (groupedNodes.get(a)?.length || 0)
-  })
-
-  const cx = width / 2
-  const cy = height / 2
-  const outerRadiusX = Math.max(80, width / 2 - 24)
-  const outerRadiusY = Math.max(80, height / 2 - 24)
-  const layerFactors = [1, 0.9, 0.8, 0.7]
-  const positionMap = new Map<string, { x: number; y: number }>()
-
-  if (rootNodeKey) {
-    positionMap.set(rootNodeKey, { x: cx, y: cy })
-  }
-
-  orderedGroupKeys.forEach((groupKey, groupIndex) => {
-    const group = groupedNodes.get(groupKey) || []
-    if (group.length === 0) return
-
-    const baseAngle = -Math.PI / 2 + (2 * Math.PI * groupIndex) / Math.max(1, orderedGroupKeys.length)
-    const spread = Math.min(1.25, Math.max(0.55, group.length * 0.03))
-    const layerStride = Math.max(1, Math.ceil(group.length / layerFactors.length))
-
-    group.forEach((node, nodeIndex) => {
-      const t = group.length === 1 ? 0 : nodeIndex / (group.length - 1) - 0.5
-      const angle = baseAngle + t * spread
-      const layerIndex = Math.min(layerFactors.length - 1, Math.floor(nodeIndex / layerStride))
-      const layerFactor = layerFactors[layerIndex]
-
-      const visualSize = Number(node.__visual?.size) || 90
-      const nodeRadius = Math.round(visualSize * 0.34)
-      const marginX = nodeRadius + 8
-      const marginY = nodeRadius + 8
-
-      let x = cx + Math.cos(angle) * outerRadiusX * layerFactor
-      let y = cy + Math.sin(angle) * outerRadiusY * layerFactor
-      x = Math.max(marginX, Math.min(width - marginX, x))
-      y = Math.max(marginY, Math.min(height - marginY, y))
-
-      positionMap.set(nodeKey(node.id), { x, y })
-    })
-  })
-
-  return positionMap
-}
-
 onMounted(async () => {
   if (typeof window !== 'undefined') {
     window.addEventListener(RUNTIME_SETTINGS_UPDATED_EVENT, handleRuntimeSettingsUpdated)
@@ -1211,7 +972,6 @@ onMounted(async () => {
 watch(activeSection, async (section) => {
   if (!tripPlan.value) return
   if (section === 'map') await ensureMapReady()
-  if (section === 'knowledge-graph') await ensureGraphReady()
 })
 
 onUnmounted(() => {
@@ -1219,14 +979,6 @@ onUnmounted(() => {
     window.removeEventListener(RUNTIME_SETTINGS_UPDATED_EVENT, handleRuntimeSettingsUpdated)
   }
   destroyCurrentMap()
-  if (kgResizeHandler) {
-    window.removeEventListener('resize', kgResizeHandler)
-    kgResizeHandler = null
-  }
-  if (kgChart) {
-    kgChart.dispose()
-    kgChart = null
-  }
 })
 
 const goBack = () => {
@@ -2046,11 +1798,6 @@ const exportAsImage = async () => {
     message.error({ content: t('result.messages.imageFailed', { error: error.message }), key: 'export' })
   }
 }
-// ========== 知识图谱初始化 ==========
-const initKnowledgeGraph = async () => {
-  // 知识图谱已改用原生 SVG 组件 KnowledgeGraph.vue（不再用 echarts）
-}
-
 const escapeHtml = (value: unknown): string => {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
