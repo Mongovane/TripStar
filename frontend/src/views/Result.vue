@@ -2540,6 +2540,7 @@ const escapeHtml = (value: unknown): string => {
   min-height: 500px;
   border-radius: 4px;
   overflow: hidden;
+  background: var(--paper, #EFE7D6);
   box-shadow: inset 0 0 0 1px rgba(36, 29, 24, 0.16), inset 0 0 44px rgba(36, 29, 24, 0.14);
 }
 .atlas-frame {

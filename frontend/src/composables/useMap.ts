@@ -436,12 +436,13 @@ const addGoogleAttractionMarkers = async (generation: number) => {
 
     const infoWindow = new google.maps.InfoWindow({
       content: buildInfoWindowContent(attraction),
-      disableAutoPan: true,
     })
 
-    marker.addListener('mouseover', () => { infoWindow.open({ anchor: marker, map: googleMap }) })
-    marker.addListener('mouseout', () => { infoWindow.close() })
-    marker.addListener('click', () => { infoWindow.open({ anchor: marker, map: googleMap }) })
+    // 点击打开并保持（自带 × 关闭）；打开新的先关掉其它，避免堆叠
+    marker.addListener('click', () => {
+      googleInfoWindows.forEach((iw) => iw.close())
+      infoWindow.open({ anchor: marker, map: googleMap })
+    })
 
     googleMarkers.push(marker)
     googleInfoWindows.push(infoWindow)
@@ -625,15 +626,9 @@ const addAttractionMarkers = async (AMap: any) => {
       closeWhenClickMap: true,
     })
 
-    // 悬停显示纯文本tooltip，移出关闭
-    marker.on('mouseover', () => {
-      infoWindow.open(map, marker.getPosition())
-    })
-    marker.on('mouseout', () => {
-      infoWindow.close()
-    })
-    // 点击也显示，兼容触屏设备
+    // 点击打开并保持；点地图空白处关闭（closeWhenClickMap）
     marker.on('click', () => {
+      map.clearInfoWindow && map.clearInfoWindow()
       infoWindow.open(map, marker.getPosition())
     })
 

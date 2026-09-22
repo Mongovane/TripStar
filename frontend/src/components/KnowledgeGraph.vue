@@ -56,14 +56,14 @@
           <!-- 星核 -->
           <circle :cx="n.x" :cy="n.y" :r="n.r" :fill="colorOf(n.category)" class="kg-core"
             :stroke="n.isCenter ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.7)'" :stroke-width="n.isCenter ? 2 : 1.3" />
-          <!-- 四芒星芒（中心 + 日程枢纽）-->
-          <path v-if="n.isHub" :d="sparkle(n.x, n.y, n.r * 1.9)" :fill="n.isCenter ? '#F4EEE1' : 'rgba(255,255,255,.9)'" class="kg-spark" />
+          <!-- 四芒星芒（中心 + 日程枢纽）：柔和黄铜，不刺眼 -->
+          <path v-if="n.isHub" :d="sparkle(n.x, n.y, n.r * 1.22)" :fill="n.isCenter ? 'rgba(233,197,118,.55)' : 'rgba(217,164,65,.42)'" class="kg-spark" />
           <!-- 标签 -->
           <text :x="n.x" :y="n.isCenter ? n.y + 6 : n.y + n.r + 15" text-anchor="middle"
             class="kg-label" :class="{ 'kg-label-center': n.isCenter }">
             <tspan v-if="!n.isCenter" :fill="colorOf(n.category)" font-family="var(--mono,monospace)" font-size="10">{{ n.cat }} </tspan><tspan :fill="n.isCenter ? '#fff' : 'var(--ink,#241D18)'" font-family="var(--serif,Georgia,serif)" :font-weight="n.isCenter ? 700 : 500">{{ n.isCenter ? n.name : (hovered === n.id ? hoverLabel(n.name) : shortLabel(n.name)) }}</tspan>
           </text>
-          <text v-if="n.value" :x="n.x" :y="n.isCenter ? n.y + 22 : n.y + n.r + 29" text-anchor="middle"
+          <text v-if="n.value && (n.isCenter || String(n.value).length <= 14)" :x="n.x" :y="n.isCenter ? n.y + 22 : n.y + n.r + 29" text-anchor="middle"
             class="kg-value" :class="{ show: hovered === n.id || n.isCenter }" font-family="var(--mono,monospace)">{{ n.value }}</text>
         </g>
       </g>
@@ -237,8 +237,8 @@ onMounted(computeLayout)
 .kg {
   position: relative; width: 100%; min-height: 620px; border-radius: 4px; overflow: hidden;
   background:
-    radial-gradient(80% 70% at 50% 44%, rgba(255, 251, 242, 0.7), transparent 60%),
-    radial-gradient(120% 120% at 50% 40%, #F3ECDA 0%, #E9DFC6 52%, #D2D8CE 82%, #C2CEC9 100%);
+    radial-gradient(70% 60% at 50% 44%, rgba(255, 251, 242, 0.65), transparent 62%),
+    radial-gradient(120% 120% at 50% 42%, #F3ECDA 0%, #ECE1C8 55%, #E2D5B6 84%, #D9CBA9 100%);
 }
 .kg::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
