@@ -226,51 +226,25 @@ const filteredBudgetItems = computed<BudgetDetailItem[]>(() => {
   return sorted
 })
 
-const editBudgetItemAmount = (item: BudgetDetailItem) => {
-  if (!tripPlan.value || item.dayIndex === null) return
+// 行内编辑金额（替代原生 prompt/confirm，体验更顺滑）
+const editingBudgetId = ref('')
+const editingBudgetValue = ref('')
 
+// 将金额写回行程数据（供行内编辑复用）；成功返回 true
+const applyBudgetAmount = (item: BudgetDetailItem, nextAmount: number): boolean => {
+  if (!tripPlan.value || item.dayIndex === null) return false
   const day = tripPlan.value.days[item.dayIndex]
-  if (!day) return
-
-  const input = window.prompt(
-    t('result.budget.editPrompt', {
-      name: item.name,
-      amount: formatBudgetAmount(item.amount),
-    }),
-    formatBudgetAmount(item.amount)
-  )
-
-  if (input === null) return
-
-  const numeric = Number(input.trim())
-  if (!Number.isFinite(numeric) || numeric < 0) {
-    message.warning(t('result.messages.budgetInvalidAmount'))
-    return
-  }
-
-  const nextAmount = roundBudgetAmount(numeric)
-  if (nextAmount === roundBudgetAmount(item.amount)) return
-
-  const confirmed = window.confirm(
-    t('result.budget.editConfirm', {
-      name: item.name,
-      amount: formatBudgetAmount(nextAmount),
-    })
-  )
-  if (!confirmed) return
+  if (!day) return false
 
   let changed = false
-
   if (item.type === 'attraction' && typeof item.sourceIndex === 'number' && day.attractions[item.sourceIndex]) {
     day.attractions[item.sourceIndex].ticket_price = nextAmount
     changed = true
   }
-
   if (item.type === 'meal' && typeof item.sourceIndex === 'number' && day.meals[item.sourceIndex]) {
     day.meals[item.sourceIndex].estimated_cost = nextAmount
     changed = true
   }
-
   if (item.type === 'hotel' && day.hotel) {
     day.hotel.estimated_cost = nextAmount
     changed = true
@@ -283,16 +257,39 @@ const editBudgetItemAmount = (item: BudgetDetailItem) => {
           roundBudgetAmount(toBudgetNumber(tripPlan.value.budget?.total_transportation) - item.amount + nextAmount)
         )
       : undefined
-
   if (item.type === 'transport' && day.transportation && day.transportation.trim()) {
     changed = true
   }
 
-  if (!changed) return
-
+  if (!changed) return false
   recalculateBudgetTotals(transportationTotal)
   sessionStorage.setItem('tripPlan', JSON.stringify(tripPlan.value))
-  message.success(t('result.messages.budgetAmountUpdated'))
+  return true
+}
+
+const startEditBudget = (item: BudgetDetailItem) => {
+  editingBudgetId.value = item.id
+  editingBudgetValue.value = formatBudgetAmount(item.amount)
+}
+
+const cancelEditBudget = () => {
+  editingBudgetId.value = ''
+  editingBudgetValue.value = ''
+}
+
+const commitEditBudget = (item: BudgetDetailItem) => {
+  if (editingBudgetId.value !== item.id) return
+  const numeric = Number(String(editingBudgetValue.value).trim())
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    message.warning(t('result.messages.budgetInvalidAmount'))
+    return
+  }
+  const nextAmount = roundBudgetAmount(numeric)
+  cancelEditBudget()
+  if (nextAmount === roundBudgetAmount(item.amount)) return
+  if (applyBudgetAmount(item, nextAmount)) {
+    message.success(t('result.messages.budgetAmountUpdated'))
+  }
 }
 
 const deleteBudgetItem = (item: BudgetDetailItem) => {
@@ -438,7 +435,11 @@ const restoreBudgetItem = (pendingItem: BudgetRestoreItem) => {
     formatBudgetAmount,
     getBudgetTypeLabel,
     recalculateBudgetTotals,
-    editBudgetItemAmount,
+    editingBudgetId,
+    editingBudgetValue,
+    startEditBudget,
+    commitEditBudget,
+    cancelEditBudget,
     deleteBudgetItem,
     restoreBudgetItem,
   }

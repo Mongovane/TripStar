@@ -131,13 +131,25 @@
                       {{ item.dayNumber ? t('common.dayNumber', { day: item.dayNumber }) : '--' }}
                     </span>
                     <span class="budget-detail-name">{{ item.name }}</span>
-                    <span class="budget-detail-amount">¥{{ formatBudgetAmount(item.amount) }}</span>
+                    <span class="budget-detail-amount">
+                      <input
+                        v-if="editingBudgetId === item.id"
+                        v-focus
+                        v-model="editingBudgetValue"
+                        class="budget-amount-input"
+                        inputmode="decimal"
+                        @keyup.enter="commitEditBudget(item)"
+                        @keyup.esc="cancelEditBudget()"
+                        @blur="commitEditBudget(item)"
+                      />
+                      <template v-else>¥{{ formatBudgetAmount(item.amount) }}</template>
+                    </span>
                     <span class="budget-action-wrap">
                       <button
                         type="button"
                         class="budget-icon-btn budget-edit-btn"
                         :title="t('result.budget.editPrice')"
-                        @click="editBudgetItemAmount(item)"
+                        @click="startEditBudget(item)"
                       >
                         <svg fill="currentColor" width="20px" height="20px" viewBox="0 0 256.00098 256.00098" id="Flat" xmlns="http://www.w3.org/2000/svg">
                           <path d="M216.001,203.833h-76l27.91015-27.90967.00684-.00635.00635-.00683,56.563-56.5625a28.03348,28.03348,0,0,0-.001-39.59766L179.23145,34.49512a28.03347,28.03347,0,0,0-39.59766,0L83.07471,91.0542l-.01026.00928-.00927.01025L26.49609,147.63281a28.03171,28.03171,0,0,0,0,39.59766L63.585,224.31836a12.00286,12.00286,0,0,0,8.48535,3.51465H216.001a12,12,0,0,0,0-24ZM156.60449,51.46582a4.00207,4.00207,0,0,1,5.65625,0L207.51562,96.7207a4.005,4.005,0,0,1,0,5.65723l-48.083,48.083L108.521,99.54932ZM106.05957,203.833H77.041L43.4668,170.25977a4.00385,4.00385,0,0,1,0-5.65625L91.55029,116.52l50.91114,50.91113Z"/>
@@ -616,11 +628,16 @@ type OverviewAttractionItem = {
 const {
   budgetFilterType, budgetSortMode, pendingBudgetItems, budgetItems, filteredBudgetItems,
   toBudgetNumber, roundBudgetAmount, formatBudgetAmount, getBudgetTypeLabel,
-  recalculateBudgetTotals, editBudgetItemAmount, deleteBudgetItem, restoreBudgetItem,
+  recalculateBudgetTotals, editingBudgetId, editingBudgetValue, startEditBudget, commitEditBudget, cancelEditBudget, deleteBudgetItem, restoreBudgetItem,
 } = useBudget(tripPlan, {
   getMealLabel: (type: string) => getMealLabel(type),
   destroyCurrentMap: () => destroyCurrentMap(),
 })
+
+// 行内编辑输入框自动聚焦并选中
+const vFocus = {
+  mounted: (el: HTMLInputElement) => { el.focus(); el.select() },
+}
 const activeWeatherIndex = ref(0)
 
 const localeTag = computed(() => {
@@ -3069,6 +3086,22 @@ const drawRoutes = async (AMap: any, attractions: any[]): Promise<any[]> => {
 .budget-detail-amount {
   font-weight: 600;
   color: var(--rust);
+}
+
+.budget-amount-input {
+  width: 84px;
+  padding: 2px 6px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--rust-deep, #95401A);
+  background: var(--card, #FBF7EE);
+  border: 1px solid var(--rust, #C0562A);
+  border-radius: 3px;
+  outline: none;
+  text-align: right;
+}
+.budget-amount-input:focus {
+  box-shadow: 0 0 0 2px rgba(192, 86, 42, .18);
 }
 
 .budget-action-wrap {
