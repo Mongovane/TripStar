@@ -31,8 +31,24 @@ export function useMap(
     return 'en-US'
   })
 
+  // 是否海外行程（高德地图海外几乎无瓦片覆盖）
+  const tripIsForeign = (): boolean => {
+    if (!tripPlan.value) return false
+    for (const day of tripPlan.value.days) {
+      for (const a of day.attractions) {
+        const lat = a.location?.latitude
+        const lng = a.location?.longitude
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          if (lat < 18 || lat > 54 || lng < 73 || lng > 135) return true
+        }
+      }
+    }
+    return false
+  }
+
   // ---- 状态 ----
 const mapRefreshing = ref(false)
+const mapNotice = ref('')
 let map: any = null
 let googleMap: google.maps.Map | null = null
 let googleMarkers: google.maps.Marker[] = []
@@ -366,6 +382,7 @@ const initGoogleMap = async (apiKey: string, generation: number) => {
 
   if (generation !== mapInitGeneration) return
 
+  mapNotice.value = ''
   message.success(t('result.messages.mapLoaded'))
 }
 
@@ -554,6 +571,11 @@ const initAMap = async () => {
 
     // 添加景点标记
     await addAttractionMarkers(AMap)
+
+    // 高德海外无瓦片：给出明确提示，而非莫名空白
+    mapNotice.value = tripIsForeign()
+      ? '此行程位于海外，高德地图暂无地图覆盖。请在 ⚙️ 设置中配置 Google Maps Key 后点「刷新地图」查看完整地图。'
+      : ''
 
     message.success(t('result.messages.mapLoaded'))
   } catch (error) {
@@ -799,6 +821,7 @@ const captureMapScreenshot = async (): Promise<string> => {
 
   return {
     mapRefreshing,
+    mapNotice,
     mapProviderType,
     refreshMap,
     ensureMapReady,

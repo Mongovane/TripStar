@@ -242,6 +242,10 @@
                   <span class="atlas-corner bl"></span>
                   <span class="atlas-corner br"></span>
                 </div>
+                <div v-if="mapNotice" class="map-notice">
+                  <span class="map-notice-icon">✦</span>
+                  <span>{{ mapNotice }}</span>
+                </div>
               </div>
             </a-card>
           </div>
@@ -610,7 +614,7 @@ const attractionPhotos = ref<Record<string, string>>({})
 const activeSection = ref('overview')
 const activeDays = ref<number[]>([0]) // 默认展开第一天
 const {
-  mapRefreshing, mapProviderType, refreshMap, ensureMapReady, destroyCurrentMap, captureMapScreenshot,
+  mapRefreshing, mapNotice, mapProviderType, refreshMap, ensureMapReady, destroyCurrentMap, captureMapScreenshot,
 } = useMap(tripPlan, { escapeHtml: (value: unknown) => escapeHtml(value) })
 
 type OverviewAttractionItem = {
@@ -2596,6 +2600,31 @@ const escapeHtml = (value: unknown): string => {
 .atlas-corner.bl { bottom: 8px; left: 8px; border-bottom-width: 2px; border-left-width: 2px; }
 .atlas-corner.br { bottom: 8px; right: 8px; border-bottom-width: 2px; border-right-width: 2px; }
 
+.map-notice {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  max-width: min(440px, 84%);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(251, 247, 238, 0.96);
+  border: 1px solid rgba(36, 29, 24, 0.16);
+  border-radius: 6px;
+  box-shadow: 0 16px 40px -18px rgba(36, 29, 24, 0.55);
+  padding: 14px 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-soft, #6B5C4C);
+}
+.map-notice-icon {
+  color: var(--rust, #C0562A);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
 .map-card :deep(.ant-card-body) {
   height: 100%;
   padding: 0;
@@ -3076,8 +3105,8 @@ const escapeHtml = (value: unknown): string => {
   --tripstar-map-accent-strong: #a14625;
   --tripstar-map-surface: rgba(17, 29, 38, 0.96);
   --tripstar-map-border: rgba(215, 110, 66, 0.35);
-  --tripstar-map-text-main: #f6fbff;
-  --tripstar-map-text-sub: rgba(240, 246, 252, 0.72);
+  --tripstar-map-text-main: #241D18;
+  --tripstar-map-text-sub: rgba(36, 29, 24, 0.66);
 }
 
 .tripstar-map-marker {
@@ -3130,11 +3159,12 @@ const escapeHtml = (value: unknown): string => {
 
 .tripstar-map-tooltip {
   max-width: min(320px, calc(100vw - 40px));
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  color: var(--tripstar-map-text-main);
+  background: var(--card, #FBF7EE);
+  border: 1px solid rgba(36, 29, 24, 0.16);
+  border-radius: 6px;
+  box-shadow: 0 10px 28px -12px rgba(36, 29, 24, 0.5);
+  padding: 9px 13px;
+  color: var(--ink, #241D18);
   pointer-events: none;
 }
 
@@ -3142,9 +3172,9 @@ const escapeHtml = (value: unknown): string => {
   margin: 0;
   font-size: 12px;
   line-height: 1.45;
-  color: #ffd6c7 !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--ink-soft, #6B5C4C) !important;
+  text-shadow: none;
+  background-color: transparent;
   white-space: nowrap;
 }
 
@@ -3154,9 +3184,9 @@ const escapeHtml = (value: unknown): string => {
 
 .tripstar-map-tooltip__line--title {
   font-size: 15px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  text-shadow: none;
   font-weight: 700;
-  color: #ffffff !important;
+  color: var(--rust-deep, #95401A) !important;
 }
 
 #amap-container .amap-info-content {
