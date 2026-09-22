@@ -67,6 +67,17 @@
             class="kg-value" :class="{ show: hovered === n.id || n.isCenter }" font-family="var(--mono,monospace)">{{ n.value }}</text>
         </g>
       </g>
+
+      <!-- 悬停信息卡：完整信息、不遮挡其它节点 -->
+      <foreignObject v-if="tip" :x="tip.x" :y="tip.y" :width="tip.w" height="168" class="kg-tip-fo">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="kg-tip-card">
+          <div class="kg-tip-cat" :style="{ color: colorOf(tip.n.category) }">
+            <span class="kg-tip-dot" :style="{ background: colorOf(tip.n.category) }"></span>{{ tip.n.catName }}
+          </div>
+          <div class="kg-tip-name">{{ tip.n.name }}</div>
+          <div v-for="(l, i) in tip.lines" :key="i" class="kg-tip-line">{{ l }}</div>
+        </div>
+      </foreignObject>
     </svg>
     <div v-if="!hasData" class="kg-empty">暂无关系图谱数据</div>
   </div>
@@ -104,13 +115,26 @@ function isNarrative(n: GraphNode, catName: string) {
 const GREEK = ['α', 'β', 'γ', 'δ', 'ε', 'ζ', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'π']
 
 type LaidNode = GraphNode & {
-  x: number; y: number; r: number; isCenter: boolean; isHub: boolean; paletteIdx: number; cat: string
+  x: number; y: number; r: number; isCenter: boolean; isHub: boolean; paletteIdx: number; cat: string; catName: string
 }
 const laid = ref<LaidNode[]>([])
 const laidEdges = ref<{ d: string; s: string; t: string }[]>([])
 const usedCats = ref<{ idx: number; name: string }[]>([])
 const adjacency = ref<Record<string, Set<string>>>({})
 const hasData = computed(() => laid.value.length > 0)
+
+// 悬停信息卡（完整显示，自动避让）
+const hoveredNode = computed(() => laid.value.find((n) => n.id === hovered.value) || null)
+const tip = computed(() => {
+  const n = hoveredNode.value
+  if (!n || n.isCenter) return null
+  const lines = String(n.value || '').split(/\s*[|｜]\s*/).map((s) => s.trim()).filter(Boolean)
+  const W = 258
+  const placeRight = n.x < CX
+  const x = placeRight ? Math.min(n.x + n.r + 14, VW - W - 8) : Math.max(n.x - n.r - 14 - W, 8)
+  const y = Math.max(8, Math.min(n.y - 26, VH - 168))
+  return { n, lines, x, y, w: W }
+})
 
 // 固定背景微星
 const bgStars = (() => {
@@ -209,6 +233,7 @@ function computeLayout() {
       isHub: isCenter || dep === 1,
       paletteIdx: ((Number(n.category) || 0) % PALETTE.length + PALETTE.length) % PALETTE.length,
       cat: GREEK[i % GREEK.length],
+      catName: catName(Number(n.category)) || '',
       r: isCenter ? 30 : dep === 1 ? Math.max(13, Math.min(20, (n.symbolSize || 40) * 0.34)) : Math.max(8, Math.min(14, (n.symbolSize || 40) * 0.26)),
       x: isCenter ? CX : CX + Math.cos(ang) * R * 1.34,
       y: isCenter ? CY : CY + Math.sin(ang) * R,
@@ -279,4 +304,37 @@ onMounted(computeLayout)
 .kg-node.center .kg-value { fill: rgba(255, 255, 255, 0.9); }
 
 .kg-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-soft, #6B5C4C); font-size: 13px; z-index: 2; }
+
+.kg-tip-fo { overflow: visible; pointer-events: none; }
+.kg-tip-card {
+  background: var(--card, #FBF7EE);
+  border: 1px solid rgba(36, 29, 24, 0.16);
+  border-radius: 6px;
+  box-shadow: 0 12px 30px -12px rgba(36, 29, 24, 0.5);
+  padding: 10px 13px;
+  font-family: var(--sans, system-ui, sans-serif);
+}
+.kg-tip-cat {
+  font-family: var(--mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+.kg-tip-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.kg-tip-name {
+  font-family: var(--serif, Georgia, serif);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink, #241D18);
+  line-height: 1.25;
+  margin-bottom: 4px;
+}
+.kg-tip-line {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-soft, #6B5C4C);
+}
 </style>

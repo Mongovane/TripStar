@@ -760,8 +760,30 @@ const refreshMap = async () => {
 
   // ---- 截图（导出用）----
 const captureMapScreenshot = async (): Promise<string> => {
+  const parentCard = document.querySelector('.right-map') as HTMLElement | null
+  const saved = parentCard
+    ? { display: parentCard.style.display, position: parentCard.style.position, left: parentCard.style.left, top: parentCard.style.top, width: parentCard.style.width, height: parentCard.style.height }
+    : null
   try {
-    // 根据当前地图供应商选择对应的 DOM 容器
+    // 地图 tab 若被 v-show 隐藏，先离屏显示出来（否则 clientHeight 为 0，无法截图）
+    const wasHidden = parentCard && getComputedStyle(parentCard).display === 'none'
+    if (parentCard && wasHidden) {
+      parentCard.style.display = 'block'
+      parentCard.style.position = 'absolute'
+      parentCard.style.left = '-10000px'
+      parentCard.style.top = '0'
+      parentCard.style.width = '1200px'
+      parentCard.style.height = '620px'
+      await nextTick()
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+
+    // 地图尚未初始化（用户没进过地图 tab）→ 先初始化
+    if (!map && !googleMap) {
+      await ensureMapReady()
+      await new Promise((resolve) => setTimeout(resolve, 900))
+    }
+
     const containerId = mapProviderType.value === 'google' ? 'google-map-container' : 'amap-container'
     const mapEl = document.getElementById(containerId)
     if (!mapEl || mapEl.clientHeight === 0) {
@@ -769,17 +791,12 @@ const captureMapScreenshot = async (): Promise<string> => {
       return ''
     }
 
-    // 临时将地图容器显示出来以便截图（可能被 v-show 隐藏）
-    const parentCard = document.querySelector('.right-map') as HTMLElement | null
-    const wasHidden = parentCard && parentCard.style.display === 'none'
-    if (parentCard && wasHidden) {
-      parentCard.style.display = 'block'
-      parentCard.style.position = 'absolute'
-      parentCard.style.left = '-9999px'
+    // 容器尺寸变化后重排 + 等瓦片
+    if (mapProviderType.value === 'amap' && map && map.resize) map.resize()
+    if (mapProviderType.value === 'google' && googleMap && (window as any).google) {
+      ;(window as any).google.maps.event.trigger(googleMap, 'resize')
     }
-
-    // 等待一帧让渲染生效
-    await new Promise(resolve => setTimeout(resolve, 300))
+    await new Promise((resolve) => setTimeout(resolve, 600))
 
     const html2canvas = (await import('html2canvas')).default
     const mapCanvas = await html2canvas(mapEl, {
@@ -789,28 +806,30 @@ const captureMapScreenshot = async (): Promise<string> => {
       useCORS: true,
       allowTaint: true,
       ignoreElements: (element) => {
-        // 忽略地图控制组件（比如 Google 的 +- 缩放按钮、高德控制条）
-        // html2canvas 对地图原生 SVG UI 的渲染支持极差，容易出现白底色块
         if (element && element.className && typeof element.className === 'string') {
           if (element.className.includes('gmnoprint') || element.className.includes('amap-controls')) {
             return true
           }
         }
         return false
-      }
+      },
     })
-
-    // 还原隐藏状态
-    if (parentCard && wasHidden) {
-      parentCard.style.display = 'none'
-      parentCard.style.position = ''
-      parentCard.style.left = ''
-    }
 
     return mapCanvas.toDataURL('image/png')
   } catch (err) {
     console.warn('⚠️ 地图截图失败，导出将不包含地图:', err)
     return ''
+  } finally {
+    // 还原地图容器
+    if (parentCard && saved) {
+      parentCard.style.display = saved.display
+      parentCard.style.position = saved.position
+      parentCard.style.left = saved.left
+      parentCard.style.top = saved.top
+      parentCard.style.width = saved.width
+      parentCard.style.height = saved.height
+      if (mapProviderType.value === 'amap' && map && map.resize) setTimeout(() => map.resize(), 100)
+    }
   }
 }
 

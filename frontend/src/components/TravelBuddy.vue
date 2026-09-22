@@ -115,6 +115,7 @@ function onDocClick(e: MouseEvent) {
   if (target.closest(
     '#travel-buddy, .ai-chat-floating, button, a, input, textarea, select, ' +
     '.ant-btn, .ant-select, .ant-menu, .ant-picker, .ant-input, ' +
+    '.atlas-wrap, #amap-container, #google-map-container, .map-card, .kg, ' +
     '.top-switch-menu, .top-switch-actions, .landing-navbar, [role="button"], [role="tab"]'
   )) return
   tx = Math.max(34, Math.min(W - 34, e.clientX))
