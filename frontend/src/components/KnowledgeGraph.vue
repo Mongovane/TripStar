@@ -1,7 +1,7 @@
 <template>
   <div ref="rootRef" class="kg">
     <div class="kg-chrome">
-      <div class="kg-eyebrow">RELATION ASTROLABE · 关系星盘</div>
+      <div class="kg-eyebrow">CONSTELLATION CHART · 关系星图</div>
       <div class="kg-legend">
         <span v-for="c in usedCats" :key="c.idx" class="kg-leg-item">
           <span class="kg-leg-dot" :style="{ background: colorOf(c.idx) }"></span>{{ c.name }}
@@ -9,37 +9,61 @@
       </div>
     </div>
 
-    <!-- 缓转刻度虚环：独立合成层，GPU 旋转（呼应星盘、不卡） -->
-    <svg class="kg-dial" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <circle cx="400" cy="280" r="252" fill="none" stroke="rgba(36,29,24,.14)" stroke-width="1" stroke-dasharray="2 8" />
+    <!-- 缓转刻度虚环：独立合成层，GPU 旋转 -->
+    <svg class="kg-dial" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <circle cx="500" cy="308" r="300" fill="none" stroke="rgba(36,29,24,.13)" stroke-width="1" stroke-dasharray="2 10" />
     </svg>
 
-    <svg class="kg-svg" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid meet" @pointerleave="hovered = ''">
-      <!-- 静态导星环 -->
-      <g fill="none" stroke="rgba(36,29,24,.1)">
-        <circle cx="400" cy="280" r="118" />
-        <circle cx="400" cy="280" r="196" />
-        <circle cx="400" cy="280" r="262" stroke="rgba(36,29,24,.06)" />
+    <svg class="kg-svg" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet" @pointerleave="hovered = ''">
+      <defs>
+        <radialGradient v-for="(c, i) in PALETTE" :key="`g-${i}`" :id="`kgGlow${i}`">
+          <stop offset="0%" :stop-color="c" stop-opacity="0.55" />
+          <stop offset="45%" :stop-color="c" stop-opacity="0.14" />
+          <stop offset="100%" :stop-color="c" stop-opacity="0" />
+        </radialGradient>
+        <radialGradient id="kgSun">
+          <stop offset="0%" stop-color="#E9A24E" stop-opacity="0.7" />
+          <stop offset="40%" stop-color="#C0562A" stop-opacity="0.3" />
+          <stop offset="100%" stop-color="#C0562A" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+
+      <!-- 星盘导星环 -->
+      <g fill="none" stroke="rgba(36,29,24,.08)">
+        <circle cx="500" cy="308" r="150" />
+        <circle cx="500" cy="308" r="240" />
+      </g>
+      <!-- 背景微星 -->
+      <g>
+        <circle v-for="(s, i) in bgStars" :key="`bs-${i}`" :cx="s.x" :cy="s.y" :r="s.r" :fill="`rgba(36,29,24,${s.o})`" />
       </g>
 
-      <!-- 向心弯曲连线 -->
-      <g class="kg-edges" fill="none">
+      <!-- 星座连线 -->
+      <g class="kg-edges">
         <path v-for="(e, i) in laidEdges" :key="`e-${i}`" :d="e.d"
           class="kg-edge" :class="{ dim: hovered && !edgeActive(e), on: edgeActive(e) }" />
       </g>
 
-      <!-- 节点 -->
+      <!-- 星辰 -->
       <g class="kg-nodes">
         <g v-for="n in laid" :key="n.id" class="kg-node"
           :class="{ dim: hovered && !nodeActive(n.id), on: hovered === n.id, center: n.isCenter }"
           @pointerenter="hovered = n.id" @click="hovered = hovered === n.id ? '' : n.id">
           <title>{{ n.name }}{{ n.value ? ' · ' + n.value : '' }}</title>
-          <circle :cx="n.x" :cy="n.y" :r="n.r + (n.isCenter ? 14 : 7)" class="kg-halo" :fill="colorOf(n.category)" />
-          <circle :cx="n.x" :cy="n.y" :r="n.r" :fill="colorOf(n.category)" class="kg-dot"
-            stroke="rgba(255,255,255,.75)" :stroke-width="n.isCenter ? 2 : 1.5" />
-          <text :x="n.x" :y="n.isCenter ? n.y + 5 : n.y + n.r + 14" text-anchor="middle"
-            class="kg-label" :class="{ 'kg-label-center': n.isCenter }" font-family="var(--mono,monospace)">{{ hovered === n.id ? hoverLabel(n.name) : shortLabel(n.name) }}</text>
-          <text v-if="n.value" :x="n.x" :y="n.isCenter ? n.y + 20 : n.y + n.r + 27" text-anchor="middle"
+          <!-- 辉光 -->
+          <circle :cx="n.x" :cy="n.y" :r="n.isCenter ? 74 : n.r * 3.4" class="kg-glow"
+            :fill="n.isCenter ? 'url(#kgSun)' : `url(#kgGlow${n.paletteIdx})`" />
+          <!-- 星核 -->
+          <circle :cx="n.x" :cy="n.y" :r="n.r" :fill="colorOf(n.category)" class="kg-core"
+            :stroke="n.isCenter ? 'rgba(255,255,255,.85)' : 'rgba(255,255,255,.7)'" :stroke-width="n.isCenter ? 2 : 1.3" />
+          <!-- 四芒星芒（中心 + 日程枢纽）-->
+          <path v-if="n.isHub" :d="sparkle(n.x, n.y, n.r * 1.9)" :fill="n.isCenter ? '#F4EEE1' : 'rgba(255,255,255,.9)'" class="kg-spark" />
+          <!-- 标签 -->
+          <text :x="n.x" :y="n.isCenter ? n.y + 6 : n.y + n.r + 15" text-anchor="middle"
+            class="kg-label" :class="{ 'kg-label-center': n.isCenter }">
+            <tspan v-if="!n.isCenter" :fill="colorOf(n.category)" font-family="var(--mono,monospace)" font-size="10">{{ n.cat }} </tspan><tspan :fill="n.isCenter ? '#fff' : 'var(--ink,#241D18)'" font-family="var(--serif,Georgia,serif)" :font-weight="n.isCenter ? 700 : 500">{{ n.isCenter ? n.name : (hovered === n.id ? hoverLabel(n.name) : shortLabel(n.name)) }}</tspan>
+          </text>
+          <text v-if="n.value" :x="n.x" :y="n.isCenter ? n.y + 22 : n.y + n.r + 29" text-anchor="middle"
             class="kg-value" :class="{ show: hovered === n.id || n.isCenter }" font-family="var(--mono,monospace)">{{ n.value }}</text>
         </g>
       </g>
@@ -54,7 +78,7 @@ import type { KnowledgeGraphData, GraphNode } from '@/types'
 
 const props = defineProps<{ data: KnowledgeGraphData | null }>()
 
-const CX = 400, CY = 280
+const VW = 1000, VH = 620, CX = 500, CY = 308
 const rootRef = ref<HTMLElement | null>(null)
 const hovered = ref('')
 
@@ -65,19 +89,41 @@ const trunc = (s: string, n: number) => (s && s.length > n ? s.slice(0, n) + '�
 const shortLabel = (name: string) => trunc(name, 8)
 const hoverLabel = (name: string) => trunc(name, 20)
 
-// 判断“长句/建议”类节点（非实体，移出图谱）
+// 四芒星芒路径
+const sparkle = (cx: number, cy: number, r: number) => {
+  const s = r * 0.32
+  return `M ${cx} ${cy - r} L ${cx + s} ${cy - s} L ${cx + r} ${cy} L ${cx + s} ${cy + s} L ${cx} ${cy + r} L ${cx - s} ${cy + s} L ${cx - r} ${cy} L ${cx - s} ${cy - s} Z`
+}
+
 function isNarrative(n: GraphNode, catName: string) {
   if (/建议|偏好|suggestion|tips|preference|好み|おすすめ/i.test(catName)) return true
   if ((n.name || '').length > 16) return true
   return false
 }
 
-type LaidNode = GraphNode & { x: number; y: number; r: number; isCenter: boolean }
+const GREEK = ['α', 'β', 'γ', 'δ', 'ε', 'ζ', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'π']
+
+type LaidNode = GraphNode & {
+  x: number; y: number; r: number; isCenter: boolean; isHub: boolean; paletteIdx: number; cat: string
+}
 const laid = ref<LaidNode[]>([])
 const laidEdges = ref<{ d: string; s: string; t: string }[]>([])
 const usedCats = ref<{ idx: number; name: string }[]>([])
 const adjacency = ref<Record<string, Set<string>>>({})
 const hasData = computed(() => laid.value.length > 0)
+
+// 固定背景微星
+const bgStars = (() => {
+  let seed = 20260924
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
+  const arr: { x: number; y: number; r: number; o: number }[] = []
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * VW, y = rnd() * VH
+    if (Math.hypot(x - CX, y - CY) < 120) continue
+    arr.push({ x: +x.toFixed(1), y: +y.toFixed(1), r: +(rnd() * 1 + 0.4).toFixed(1), o: +(rnd() * 0.18 + 0.06).toFixed(2) })
+  }
+  return arr
+})()
 
 function nodeActive(id: string) {
   if (!hovered.value) return true
@@ -93,65 +139,94 @@ function computeLayout() {
   if (!d || !d.nodes || d.nodes.length === 0) { laid.value = []; laidEdges.value = []; usedCats.value = []; return }
   const catName = (i: number) => (d.categories && d.categories[i] ? d.categories[i].name : '')
 
-  // 过滤掉长句/建议类节点
   const nodes = d.nodes.filter((n) => !isNarrative(n, catName(Number(n.category))))
   const keep = new Set(nodes.map((n) => n.id))
   const edges = (d.edges || []).filter((e) => keep.has(e.source) && keep.has(e.target))
-
-  // 度数 → 选中心（城市/枢纽）
-  const deg: Record<string, number> = {}
-  nodes.forEach((n) => { deg[n.id] = 0 })
-  edges.forEach((e) => { deg[e.source]++; deg[e.target]++ })
-  let center = nodes[0]
-  nodes.forEach((n) => { if (deg[n.id] > deg[center.id]) center = n })
-
-  const leaves = nodes.filter((n) => n.id !== center.id)
-  // 按分类分组、类内相邻
-  const byCat: Record<string, GraphNode[]> = {}
-  leaves.forEach((n) => { const k = String(n.category); (byCat[k] ||= []).push(n) })
-  const catKeys = Object.keys(byCat).sort((a, b) => Number(a) - Number(b))
-  const ordered: GraphNode[] = []
-  catKeys.forEach((k) => byCat[k].forEach((n) => ordered.push(n)))
-
-  const N = Math.max(ordered.length, 1)
-  const map: Record<string, LaidNode> = {}
-  const laidNodes: LaidNode[] = []
-
-  const c: LaidNode = { ...center, x: CX, y: CY, r: 24, isCenter: true }
-  map[c.id] = c; laidNodes.push(c)
-
-  ordered.forEach((n, i) => {
-    const ang = -Math.PI / 2 + (i / N) * Math.PI * 2
-    const tier = i % 2
-    const R = tier === 0 ? 150 : 210
-    const ln: LaidNode = {
-      ...n,
-      x: CX + Math.cos(ang) * R * 1.28,
-      y: CY + Math.sin(ang) * R,
-      r: Math.max(9, Math.min(18, (n.symbolSize || 40) * 0.3)),
-      isCenter: false,
-    }
-    map[n.id] = ln; laidNodes.push(ln)
-  })
+  const nodeById: Record<string, GraphNode> = {}
+  nodes.forEach((n) => { nodeById[n.id] = n })
 
   // 邻接
   const adj: Record<string, Set<string>> = {}
-  laidNodes.forEach((n) => { adj[n.id] = new Set() })
+  nodes.forEach((n) => { adj[n.id] = new Set() })
   edges.forEach((e) => { adj[e.source].add(e.target); adj[e.target].add(e.source) })
   adjacency.value = adj
 
-  // 向心弯曲弧线
+  // 选根：城市分类，否则度数最高
+  let root = nodes.find((n) => /城市|都市|city/i.test(catName(Number(n.category))))
+  if (!root) { root = nodes[0]; nodes.forEach((n) => { if (adj[n.id].size > adj[root!.id].size) root = n }) }
+
+  // BFS 生成树
+  const depth: Record<string, number> = { [root.id]: 0 }
+  const parent: Record<string, string | null> = { [root.id]: null }
+  const children: Record<string, string[]> = {}
+  nodes.forEach((n) => { children[n.id] = [] })
+  const queue = [root.id]
+  const seen = new Set([root.id])
+  while (queue.length) {
+    const id = queue.shift()!
+    Array.from(adj[id]).forEach((nb) => {
+      if (!seen.has(nb)) { seen.add(nb); depth[nb] = depth[id] + 1; parent[nb] = id; children[id].push(nb); queue.push(nb) }
+    })
+  }
+  // 孤立点挂到根
+  nodes.forEach((n) => { if (!seen.has(n.id)) { seen.add(n.id); depth[n.id] = 1; parent[n.id] = root!.id; children[root!.id].push(n.id) } })
+
+  // 叶子数
+  const leaves: Record<string, number> = {}
+  const countLeaves = (id: string): number => {
+    if (children[id].length === 0) { leaves[id] = 1; return 1 }
+    let s = 0; children[id].forEach((c) => { s += countLeaves(c) }); leaves[id] = s; return s
+  }
+  countLeaves(root.id)
+
+  // 递归分配角度
+  const angleOf: Record<string, number> = {}
+  const assign = (id: string, a0: number, a1: number) => {
+    angleOf[id] = (a0 + a1) / 2
+    const kids = children[id]
+    if (!kids.length) return
+    let a = a0
+    kids.forEach((c) => {
+      const span = (a1 - a0) * (leaves[c] / leaves[id])
+      assign(c, a, a + span)
+      a += span
+    })
+  }
+  assign(root.id, -Math.PI / 2, Math.PI * 1.5)
+
+  const RING = [0, 155, 262, 300]
+  const catUse = new Set<number>()
+
+  const laidNodes: LaidNode[] = nodes.map((n, i) => {
+    const dep = Math.min(depth[n.id], 3)
+    const ang = angleOf[n.id]
+    const isCenter = n.id === root!.id
+    const R = RING[dep]
+    catUse.add(Number(n.category))
+    return {
+      ...n,
+      isCenter,
+      isHub: isCenter || dep === 1,
+      paletteIdx: ((Number(n.category) || 0) % PALETTE.length + PALETTE.length) % PALETTE.length,
+      cat: GREEK[i % GREEK.length],
+      r: isCenter ? 30 : dep === 1 ? Math.max(13, Math.min(20, (n.symbolSize || 40) * 0.34)) : Math.max(8, Math.min(14, (n.symbolSize || 40) * 0.26)),
+      x: isCenter ? CX : CX + Math.cos(ang) * R * 1.34,
+      y: isCenter ? CY : CY + Math.sin(ang) * R,
+    }
+  })
+  const posById: Record<string, LaidNode> = {}
+  laidNodes.forEach((n) => { posById[n.id] = n })
+
+  // 星座连线：向心弯曲
   laidEdges.value = edges.map((e) => {
-    const a = map[e.source], b = map[e.target]
+    const a = posById[e.source], b = posById[e.target]
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2
-    const qx = mx + (CX - mx) * 0.35, qy = my + (CY - my) * 0.35
+    const qx = mx + (CX - mx) * 0.28, qy = my + (CY - my) * 0.28
     return { d: `M ${a.x} ${a.y} Q ${qx} ${qy} ${b.x} ${b.y}`, s: e.source, t: e.target }
   })
 
   laid.value = laidNodes
-  usedCats.value = catKeys.concat(String(center.category)).filter((v, i, arr) => arr.indexOf(v) === i)
-    .map((k) => ({ idx: Number(k), name: catName(Number(k)) || '类别' }))
-    .sort((a, b) => a.idx - b.idx)
+  usedCats.value = Array.from(catUse).sort((a, b) => a - b).map((k) => ({ idx: k, name: catName(k) || '类别' }))
 }
 
 watch(() => props.data, computeLayout, { deep: false })
@@ -160,48 +235,48 @@ onMounted(computeLayout)
 
 <style scoped>
 .kg {
-  position: relative; width: 100%; min-height: 560px; border-radius: 4px; overflow: hidden;
+  position: relative; width: 100%; min-height: 620px; border-radius: 4px; overflow: hidden;
   background:
-    radial-gradient(120% 85% at 50% 40%, rgba(255, 251, 242, .55), transparent 62%),
-    radial-gradient(60% 55% at 50% 50%, rgba(217, 164, 65, .09), transparent 66%),
-    radial-gradient(150% 120% at 50% 118%, rgba(31, 84, 96, .1), transparent 60%),
-    #EFE7D6;
+    radial-gradient(80% 70% at 50% 44%, rgba(255, 251, 242, 0.7), transparent 60%),
+    radial-gradient(120% 120% at 50% 40%, #F3ECDA 0%, #E9DFC6 52%, #D2D8CE 82%, #C2CEC9 100%);
 }
 .kg::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle, rgba(36, 29, 24, .045) 1px, transparent 1px);
-  background-size: 22px 22px; opacity: .38;
+  background: radial-gradient(circle, rgba(36, 29, 24, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px; opacity: 0.4;
 }
 .kg-chrome { position: absolute; top: 16px; left: 18px; right: 18px; z-index: 3; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; pointer-events: none; }
-.kg-eyebrow { font-family: var(--mono, monospace); font-size: 10.5px; letter-spacing: .18em; color: var(--rust, #C0562A); text-transform: uppercase; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.kg-eyebrow { font-family: var(--mono, monospace); font-size: 10.5px; letter-spacing: 0.18em; color: var(--rust, #C0562A); text-transform: uppercase; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .kg-eyebrow::before { content: ''; width: 22px; height: 1px; background: var(--rust, #C0562A); }
 .kg-legend { display: flex; flex-wrap: wrap; gap: 5px 12px; justify-content: flex-end; }
 .kg-leg-item { font-family: var(--mono, monospace); font-size: 10px; color: var(--ink-soft, #6B5C4C); display: inline-flex; align-items: center; gap: 5px; }
 .kg-leg-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
-.kg-dial { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; transform-origin: center; will-change: transform; animation: kg-spin 120s linear infinite; }
+.kg-dial { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; transform-origin: center; will-change: transform; animation: kg-spin 140s linear infinite; }
 @keyframes kg-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .kg-dial { animation: none; } }
 
-.kg-svg { position: relative; z-index: 1; width: 100%; height: 100%; min-height: 560px; display: block; }
+.kg-svg { position: relative; z-index: 1; width: 100%; height: 100%; min-height: 620px; display: block; }
 
-.kg-edge { stroke: rgba(36, 29, 24, .22); stroke-width: 1.1; transition: stroke .2s, opacity .2s, stroke-width .2s; }
-.kg-edge.dim { opacity: .1; }
-.kg-edge.on { stroke: var(--rust, #C0562A); stroke-width: 1.8; opacity: 1; }
+.kg-edge { fill: none; stroke: rgba(36, 29, 24, 0.2); stroke-width: 1; transition: stroke 0.25s, opacity 0.25s, stroke-width 0.25s; }
+.kg-edge.dim { opacity: 0.08; }
+.kg-edge.on { stroke: var(--brass, #D9A441); stroke-width: 1.8; opacity: 1; }
 
-.kg-node { cursor: pointer; transition: opacity .2s; }
-.kg-node.dim { opacity: .26; }
-.kg-halo { opacity: .16; transition: opacity .2s, transform .2s; transform-box: fill-box; transform-origin: center; }
-.kg-dot { transition: transform .2s; transform-box: fill-box; transform-origin: center; }
-.kg-node.center .kg-halo { opacity: .28; animation: kg-pulse 3.4s ease-in-out infinite; }
-@keyframes kg-pulse { 0%,100% { transform: scale(1); opacity: .28; } 50% { transform: scale(1.18); opacity: .16; } }
-.kg-node.on .kg-halo { opacity: .36; transform: scale(1.3); }
-.kg-node.on .kg-dot { transform: scale(1.18); }
-.kg-label { font-size: 11px; fill: var(--ink, #241D18); pointer-events: none; }
-.kg-label-center { font-family: var(--serif, Georgia) !important; font-weight: 600; font-size: 15px; fill: #fff; }
-.kg-value { font-size: 9.5px; fill: var(--rust-deep, #95401A); pointer-events: none; opacity: 0; transition: opacity .2s; }
+.kg-node { cursor: pointer; transition: opacity 0.25s; }
+.kg-node.dim { opacity: 0.22; }
+.kg-glow { transition: opacity 0.25s, transform 0.25s; transform-box: fill-box; transform-origin: center; }
+.kg-core { transition: transform 0.2s; transform-box: fill-box; transform-origin: center; }
+.kg-spark { opacity: 0.9; transform-box: fill-box; transform-origin: center; }
+.kg-node.center .kg-glow { animation: kg-breathe 4s ease-in-out infinite; }
+@keyframes kg-breathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.82; } }
+.kg-node.on .kg-glow { opacity: 1; transform: scale(1.35); }
+.kg-node.on .kg-core { transform: scale(1.2); }
+.kg-label { pointer-events: none; }
+.kg-label tspan { font-size: 12px; }
+.kg-label-center tspan { font-size: 16px; }
+.kg-value { font-size: 9.5px; fill: var(--rust-deep, #95401A); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
 .kg-value.show { opacity: 1; }
-.kg-node.center .kg-value { fill: rgba(255,255,255,.92); }
+.kg-node.center .kg-value { fill: rgba(255, 255, 255, 0.9); }
 
 .kg-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-soft, #6B5C4C); font-size: 13px; z-index: 2; }
 </style>
