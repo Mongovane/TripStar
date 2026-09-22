@@ -61,7 +61,7 @@ let napTimer = 0
 let blinkTimer = 0
 let bubbleTimer = 0
 // pointer (tap vs drag)
-let downX = 0, downY = 0, downT = 0, moved = false
+let downX = 0, downY = 0, downT = 0
 
 const quacks = ['嘎嘎～', '咕咕！', '呱！', '嘎!', '咕嘎咕嘎～']
 
@@ -125,7 +125,7 @@ function onDocClick(e: MouseEvent) {
 }
 
 function onPointerDown(e: PointerEvent) {
-  downX = e.clientX; downY = e.clientY; downT = performance.now(); moved = false
+  downX = e.clientX; downY = e.clientY; downT = performance.now()
 }
 function onPointerUp(e: PointerEvent) {
   const dist = Math.hypot(e.clientX - downX, e.clientY - downY)

@@ -1,4 +1,4 @@
-import { ref, nextTick, type Ref } from 'vue'
+import { ref, nextTick, computed, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import AMapLoader from '@amap/amap-jsapi-loader'
@@ -20,8 +20,16 @@ export function useMap(
   tripPlan: Ref<TripPlan | null>,
   deps: { escapeHtml: (value: unknown) => string }
 ) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { escapeHtml } = deps
+
+  // Google 地图语言（由 i18n locale 推导）
+  const localeTag = computed(() => {
+    const c = String(locale.value || 'en').toLowerCase()
+    if (c.startsWith('zh')) return 'zh-CN'
+    if (c.startsWith('ja')) return 'ja-JP'
+    return 'en-US'
+  })
 
   // ---- 状态 ----
 const mapRefreshing = ref(false)

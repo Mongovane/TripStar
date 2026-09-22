@@ -324,6 +324,7 @@
                           :src="toProxiedPhotoUrl(item.image_url) || getAttractionImage(item.name, index)"
                           :alt="item.name"
                           class="attraction-image"
+                          loading="lazy"
                           @error="handleImageError"
                         />
                         <div class="attraction-badge">
@@ -579,7 +580,7 @@ import OverviewOrrery from '@/components/OverviewOrrery.vue'
 import KnowledgeGraph from '@/components/KnowledgeGraph.vue'
 import AIChat from '@/components/AIChat.vue'
 import TravelBuddy from '@/components/TravelBuddy.vue'
-import type { TripPlan, TripPlanResponse, KnowledgeGraphData, Attraction, Meal, Hotel, WeatherInfo } from '@/types'
+import type { TripPlan, TripPlanResponse, KnowledgeGraphData, WeatherInfo } from '@/types'
 import { useBudget } from '@/composables/useBudget'
 import { useMap } from '@/composables/useMap'
 import {
@@ -614,8 +615,8 @@ type OverviewAttractionItem = {
 }
 
 const {
-  budgetFilterType, budgetSortMode, pendingBudgetItems, budgetItems, filteredBudgetItems,
-  toBudgetNumber, roundBudgetAmount, formatBudgetAmount, getBudgetTypeLabel,
+  budgetFilterType, budgetSortMode, pendingBudgetItems, filteredBudgetItems,
+  formatBudgetAmount, getBudgetTypeLabel,
   recalculateBudgetTotals, editingBudgetId, editingBudgetValue, startEditBudget, commitEditBudget, cancelEditBudget, deleteBudgetItem, restoreBudgetItem,
 } = useBudget(tripPlan, {
   getMealLabel: (type: string) => getMealLabel(type),

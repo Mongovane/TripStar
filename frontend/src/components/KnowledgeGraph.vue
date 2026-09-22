@@ -54,7 +54,7 @@ import type { KnowledgeGraphData, GraphNode } from '@/types'
 
 const props = defineProps<{ data: KnowledgeGraphData | null }>()
 
-const VW = 800, VH = 560, CX = 400, CY = 280
+const CX = 400, CY = 280
 const rootRef = ref<HTMLElement | null>(null)
 const hovered = ref('')
 
