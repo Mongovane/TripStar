@@ -335,7 +335,7 @@
                       <!-- 景点图片 -->
                       <div class="attraction-image-wrapper">
                         <img
-                          :src="toProxiedPhotoUrl(item.image_url) || getAttractionImage(item.name, index)"
+                          :src="getAttractionImage(item.name, index) || toProxiedPhotoUrl(item.image_url)"
                           :alt="item.name"
                           class="attraction-image"
                           loading="lazy"
@@ -614,7 +614,7 @@ const attractionPhotos = ref<Record<string, string>>({})
 const activeSection = ref('overview')
 const activeDays = ref<number[]>([0]) // 默认展开第一天
 const {
-  mapRefreshing, mapNotice, mapProviderType, refreshMap, ensureMapReady, destroyCurrentMap, captureMapScreenshot,
+  mapRefreshing, mapNotice, mapProviderType, fetchGooglePhotos, refreshMap, ensureMapReady, destroyCurrentMap, captureMapScreenshot,
 } = useMap(tripPlan, { escapeHtml: (value: unknown) => escapeHtml(value) })
 
 type OverviewAttractionItem = {
@@ -1044,6 +1044,25 @@ const loadAttractionPhotos = async () => {
   for (const name of uniqueNames) {
     attractionPhotos.value[name] = `${apiBase}/api/poi/image?name=${encodeURIComponent(name)}`
   }
+
+  // 若配置了 Google Key：浏览器端用 Google Places 取更可靠的实拍图，覆盖占位
+  void (async () => {
+    try {
+      const attrs = (tripPlan.value?.days || []).flatMap((d) =>
+        d.attractions.map((a) => ({
+          name: a.name,
+          latitude: a.location?.latitude,
+          longitude: a.location?.longitude,
+        }))
+      )
+      const photos = await fetchGooglePhotos(attrs)
+      Object.entries(photos).forEach(([name, url]) => {
+        if (url) attractionPhotos.value[name] = url
+      })
+    } catch (e) {
+      /* ignore */
+    }
+  })()
 }
 
 // 获取景点图片
@@ -1098,7 +1117,7 @@ const buildExportHTML = (mapDataUrl: string = ''): string => {
   tp.days.forEach((day, index) => {
     let attractionsHTML = ''
     day.attractions.forEach((a, ai) => {
-      const photoUrl = toProxiedPhotoUrl(a.image_url) || attractionPhotos.value[a.name] || ''
+      const photoUrl = attractionPhotos.value[a.name] || toProxiedPhotoUrl(a.image_url) || ''
       const durationText = t('result.export.durationLine', { duration: a.visit_duration || '—' })
       // 图片自适应：不压缩不裁剪，保持原始比例
       const imgTag = photoUrl
@@ -3221,6 +3240,26 @@ const escapeHtml = (value: unknown): string => {
   font-weight: 600;
   color: var(--rust-deep, #95401A) !important;
   margin-bottom: 2px;
+}
+
+.tripstar-map-copy {
+  pointer-events: auto;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  color: var(--rust, #C0562A);
+  background: rgba(192, 86, 42, 0.08);
+  border: 1px solid rgba(192, 86, 42, 0.28);
+  border-radius: 4px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.tripstar-map-copy:hover {
+  background: rgba(192, 86, 42, 0.16);
 }
 
 #amap-container .amap-info-content {

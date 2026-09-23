@@ -23,6 +23,24 @@ export function useMap(
   const { t, locale } = useI18n()
   const { escapeHtml } = deps
 
+  // 地图信息窗「复制」按钮的全局处理器
+  ;(window as any).__tsMapCopy = (btn: HTMLElement) => {
+    const text = (btn?.dataset?.copy || '').replace(/&#10;/g, '\n')
+    const done = () => {
+      const orig = btn.textContent
+      btn.textContent = '✓ 已复制'
+      setTimeout(() => { if (btn) btn.textContent = orig }, 1200)
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => {})
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = text; document.body.appendChild(ta); ta.select()
+      try { document.execCommand('copy'); done() } catch (e) { /* noop */ }
+      document.body.removeChild(ta)
+    }
+  }
+
   // Google 地图语言（由 i18n locale 推导）
   const localeTag = computed(() => {
     const c = String(locale.value || 'en').toLowerCase()
@@ -44,6 +62,44 @@ export function useMap(
       }
     }
     return false
+  }
+
+  // 客户端用 Google Places 取景点实拍图（浏览器直连 Google，绕开国内服务器无法访问 Google 的限制）
+  const fetchGooglePhotos = async (
+    attractions: Array<{ name?: string; latitude?: number; longitude?: number }>
+  ): Promise<Record<string, string>> => {
+    const out: Record<string, string> = {}
+    let apiKey = getRuntimeGoogleMapsApiKey() || ''
+    if (!apiKey) {
+      try { apiKey = ((await getBackendRuntimeSettings()) as any)?.google_maps_api_key || '' } catch { /* ignore */ }
+    }
+    if (!apiKey || !attractions || !attractions.length) return out
+    try {
+      const loader = new GoogleMapsLoader({ apiKey, version: 'weekly', language: localeTag.value })
+      await loader.importLibrary('maps')
+      const placesLib: any = await loader.importLibrary('places')
+      const svc = new placesLib.PlacesService(document.createElement('div'))
+      for (const a of attractions) {
+        if (!a || !a.name) continue
+        const url = await new Promise<string>((resolve) => {
+          const req: any = { query: a.name, fields: ['photos'] }
+          try {
+            if (typeof a.latitude === 'number' && typeof a.longitude === 'number' && (window as any).google) {
+              req.locationBias = new (window as any).google.maps.LatLng(a.latitude, a.longitude)
+            }
+            svc.findPlaceFromQuery(req, (results: any) => {
+              const ph = results && results[0] && results[0].photos && results[0].photos[0]
+              resolve(ph ? ph.getUrl({ maxWidth: 720 }) : '')
+            })
+          } catch { resolve('') }
+        })
+        if (url) out[a.name as string] = url
+        await new Promise((r) => setTimeout(r, 120))
+      }
+    } catch (e) {
+      console.warn('Google Places 取图失败:', e)
+    }
+    return out
   }
 
   // ---- 状态 ----
@@ -80,6 +136,9 @@ const buildInfoWindowContent = (attraction: any): string => {
     t('result.mapInfo.dayAttraction', { day: attraction.dayIndex + 1, index: attraction.attrIndex + 1 })
   )
   const minuteUnit = escapeHtml(t('result.minuteUnit'))
+  const copyText = escapeHtml(
+    `${attraction.name || ''}\n${attraction.address || ''}\n${visitDuration}${t('result.minuteUnit')}`
+  )
 
   return `
     <div class="tripstar-map-tooltip tripstar-map-tooltip--plain">
@@ -87,6 +146,7 @@ const buildInfoWindowContent = (attraction: any): string => {
       <p class="tripstar-map-tooltip__line">${dayAttractionText}</p>
       <p class="tripstar-map-tooltip__line">${address}</p>
       <p class="tripstar-map-tooltip__line">${visitDuration}${minuteUnit}</p>
+      <button type="button" class="tripstar-map-copy" data-copy="${copyText}" onclick="window.__tsMapCopy && window.__tsMapCopy(this)">⎘ 复制</button>
     </div>
   `
 }
@@ -837,6 +897,7 @@ const captureMapScreenshot = async (): Promise<string> => {
     mapRefreshing,
     mapNotice,
     mapProviderType,
+    fetchGooglePhotos,
     refreshMap,
     ensureMapReady,
     destroyCurrentMap,
