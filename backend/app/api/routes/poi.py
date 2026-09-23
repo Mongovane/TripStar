@@ -127,7 +127,7 @@ async def proxy_attraction_image(name: Optional[str] = None, url: Optional[str] 
         return Response(
             content=svg.encode("utf-8"),
             media_type="image/svg+xml",
-            headers={"Cache-Control": "public, max-age=600", "X-Image-Status": "fallback"},
+            headers={"Cache-Control": "public, max-age=60", "X-Image-Status": "fallback"},
         )
 
     def _google_place_photo(place_name: str):
@@ -303,7 +303,13 @@ async def google_places_diagnose(name: str = "双子塔观景台"):
         if gs == "OK" and out["first_has_photos"]:
             out["conclusion"] = "✅ Google 一切正常，应该能取到图（若前端仍占位，多为浏览器缓存，硬刷新）"
         elif gs == "REQUEST_DENIED":
-            out["conclusion"] = "❌ REQUEST_DENIED：该 Key 的『应用限制』挡了服务器请求（多为 HTTP 来源限制）。请到 Google Console 把应用限制改为『无』或『IP 地址』并加上服务器 IP；并确认已启用 Places API（不是仅 Places API New）且开通结算。"
+            em = (body.get("error_message") or "")
+            if "Billing" in em or "billing" in em:
+                out["conclusion"] = "❌ REQUEST_DENIED：该 Google Cloud 项目【未开通结算 Billing】。请到 https://console.cloud.google.com/billing 为项目绑定结算账号（有 $300 免费额度）。开通后无需改代码，图片会自动出现。"
+            elif "not authorized" in em or "API" in em:
+                out["conclusion"] = f"❌ REQUEST_DENIED：{em}。请在 Google Console 启用 Places API（经典版，不是仅 Places API New）。"
+            else:
+                out["conclusion"] = f"❌ REQUEST_DENIED：{em}。多为该 Key 的『应用限制』(HTTP 来源) 挡了服务器请求 → 改为『无』或加服务器 IP。"
         elif gs == "OK" and not out["first_has_photos"]:
             out["conclusion"] = "⚠️ 搜到了地点但该地点在 Google 上没有照片。"
         elif gs == "ZERO_RESULTS":
