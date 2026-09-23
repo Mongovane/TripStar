@@ -266,3 +266,51 @@ async def get_attraction_photo(name: str, city: Optional[str] = None):
             detail=f"获取景点图片失败: {str(e)}"
         )
 
+
+@router.get("/google-diagnose")
+async def google_places_diagnose(name: str = "双子塔观景台"):
+    """诊断 Google Places 取图链路：返回后端调用 Google 的原始状态，便于定位问题。"""
+    from ...config import settings
+    key = getattr(settings, "google_maps_api_key", "") or ""
+    proxy = getattr(settings, "google_maps_proxy", "") or ""
+    out = {
+        "key_present": bool(key),
+        "key_tail": (key[-6:] if key else ""),
+        "proxy": proxy or "(none)",
+        "query": name,
+    }
+    if not key:
+        out["conclusion"] = "后端未拿到 google_maps_api_key（请在设置里保存后重试）"
+        return out
+    try:
+        import requests
+        proxies = {"http": proxy, "https": proxy} if proxy else None
+        r = requests.get(
+            "https://maps.googleapis.com/maps/api/place/textsearch/json",
+            params={"query": name, "key": key, "language": "zh-CN"},
+            proxies=proxies, timeout=10,
+        )
+        body = r.json() or {}
+        out["http_status"] = r.status_code
+        out["google_status"] = body.get("status")
+        out["error_message"] = body.get("error_message", "")
+        results = body.get("results") or []
+        out["results_count"] = len(results)
+        out["first_place"] = results[0].get("name") if results else None
+        out["first_has_photos"] = bool(results and results[0].get("photos"))
+        # 结论
+        gs = body.get("status")
+        if gs == "OK" and out["first_has_photos"]:
+            out["conclusion"] = "✅ Google 一切正常，应该能取到图（若前端仍占位，多为浏览器缓存，硬刷新）"
+        elif gs == "REQUEST_DENIED":
+            out["conclusion"] = "❌ REQUEST_DENIED：该 Key 的『应用限制』挡了服务器请求（多为 HTTP 来源限制）。请到 Google Console 把应用限制改为『无』或『IP 地址』并加上服务器 IP；并确认已启用 Places API（不是仅 Places API New）且开通结算。"
+        elif gs == "OK" and not out["first_has_photos"]:
+            out["conclusion"] = "⚠️ 搜到了地点但该地点在 Google 上没有照片。"
+        elif gs == "ZERO_RESULTS":
+            out["conclusion"] = "⚠️ Google 搜不到这个名字（可加城市/英文名提高命中）。"
+        else:
+            out["conclusion"] = f"⚠️ Google 返回 {gs}：{body.get('error_message','')}"
+    except Exception as e:
+        out["exception"] = str(e)
+        out["conclusion"] = "❌ 后端请求 Google 异常（可能服务器访问不了 Google，需配置 google_maps_proxy）"
+    return out
