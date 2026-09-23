@@ -3110,6 +3110,37 @@ const escapeHtml = (value: unknown): string => {
   --tripstar-map-text-sub: rgba(36, 29, 24, 0.66);
 }
 
+/* 去掉 Google InfoWindow 默认白框/尾巴/内边距，只保留我们的奶油卡（与知识图谱信息卡统一） */
+.gm-style .gm-style-iw-c {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  max-width: none !important;
+  overflow: visible !important;
+}
+.gm-style .gm-style-iw-d {
+  overflow: visible !important;
+  padding: 0 !important;
+  max-height: none !important;
+}
+.gm-style .gm-style-iw-tc,
+.gm-style .gm-style-iw-t::after {
+  display: none !important;
+}
+.gm-style .gm-ui-hover-effect {
+  top: 4px !important;
+  right: 4px !important;
+  width: 26px !important;
+  height: 26px !important;
+  opacity: 0.75;
+}
+.gm-style .gm-ui-hover-effect > span {
+  background-color: var(--ink-soft, #6B5C4C) !important;
+  width: 15px !important;
+  height: 15px !important;
+}
+
 .tripstar-map-marker {
   position: relative;
   width: 34px;
@@ -3184,10 +3215,12 @@ const escapeHtml = (value: unknown): string => {
 }
 
 .tripstar-map-tooltip__line--title {
+  font-family: 'Newsreader', Georgia, serif;
   font-size: 15px;
   text-shadow: none;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--rust-deep, #95401A) !important;
+  margin-bottom: 2px;
 }
 
 #amap-container .amap-info-content {
