@@ -130,7 +130,59 @@ async def proxy_attraction_image(name: Optional[str] = None, url: Optional[str] 
             headers={"Cache-Control": "public, max-age=600", "X-Image-Status": "fallback"},
         )
 
+    def _google_place_photo(place_name: str):
+        """若配置了 Google Maps Key，则用 Google Places 取实拍图（海外/整体更可靠）。返回 (bytes, content_type) 或 None。"""
+        try:
+            from ...config import settings
+        except Exception:
+            return None
+        key = getattr(settings, "google_maps_api_key", "") or ""
+        if not key:
+            return None
+        try:
+            import requests
+            proxies = None
+            proxy = getattr(settings, "google_maps_proxy", "") or ""
+            if proxy:
+                proxies = {"http": proxy, "https": proxy}
+            # 1) 文本搜索找地点
+            r = requests.get(
+                "https://maps.googleapis.com/maps/api/place/textsearch/json",
+                params={"query": place_name, "key": key, "language": "zh-CN"},
+                proxies=proxies, timeout=8,
+            )
+            results = (r.json() or {}).get("results") or []
+            if not results:
+                return None
+            photos = results[0].get("photos") or []
+            if not photos:
+                return None
+            ref = photos[0].get("photo_reference")
+            if not ref:
+                return None
+            # 2) 取照片
+            pr = requests.get(
+                "https://maps.googleapis.com/maps/api/place/photo",
+                params={"maxwidth": 720, "photo_reference": ref, "key": key},
+                proxies=proxies, timeout=10, allow_redirects=True,
+            )
+            ct = pr.headers.get("Content-Type", "")
+            if pr.status_code == 200 and pr.content and ct.startswith("image"):
+                return pr.content, ct
+        except Exception as e:
+            print(f"⚠️ Google Places 取图失败: {place_name} - {e}")
+        return None
+
     if name:
+        # 优先 Google Places（配置了 Key 时更可靠，海外景点也有图）
+        g = _google_place_photo(name)
+        if g is not None:
+            data, content_type = g
+            return Response(
+                content=data,
+                media_type=content_type,
+                headers={"Cache-Control": "public, max-age=86400", "X-Image-Source": "google"},
+            )
         try:
             result = await get_photo_bytes_from_xhs(f"{name} 风景")
         except Exception as e:

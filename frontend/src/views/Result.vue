@@ -1103,11 +1103,11 @@ const buildExportHTML = (mapDataUrl: string = ''): string => {
       // 图片自适应：不压缩不裁剪，保持原始比例
       const imgTag = photoUrl
         ? `<img src="${photoUrl}" style="width:100%;height:auto;max-height:400px;object-fit:contain;border-radius:8px;margin-bottom:8px;" crossorigin="anonymous" />`
-        : `<div style="width:100%;height:80px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:bold;">${a.name}</div>`
+        : `<div style="width:100%;height:80px;background:linear-gradient(135deg,#1f4450,#14232a);border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:bold;">${a.name}</div>`
       attractionsHTML += `
-        <div style="flex:0 0 48%;background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,0.07);margin-bottom:14px;">
+        <div style="flex:0 0 48%;background:#FBF7EE;border-radius:10px;padding:14px;box-shadow:0 2px 10px -4px rgba(36,29,24,.28);margin-bottom:14px;">
           ${imgTag}
-          <h4 style="margin:0 0 6px;font-size:17px;color:#1a1a1a;">${ai + 1}. ${a.name}</h4>
+          <h4 style="margin:0 0 6px;font-size:17px;color:#241D18;">${ai + 1}. ${a.name}</h4>
           <p style="margin:2px 0;font-size:14px;color:#555;">${a.address || '—'}</p>
           <p style="margin:2px 0;font-size:14px;color:#555;">${durationText}${a.ticket_price ? `  |  ¥${a.ticket_price}` : ''}</p>
           <p style="margin:4px 0;font-size:14px;color:#666;">${a.description || ''}</p>
@@ -1117,16 +1117,16 @@ const buildExportHTML = (mapDataUrl: string = ''): string => {
     // 餐饮推荐
     let mealsHTML = ''
     if (day.meals && day.meals.length) {
-      mealsHTML = `<div style="margin-top:10px;"><strong style="color:#333;">${t('result.export.mealTitle')}</strong><div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">`
+      mealsHTML = `<div style="margin-top:10px;"><strong style="color:#3A2E22;">${t('result.export.mealTitle')}</strong><div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">`
       day.meals.forEach(m => {
-        mealsHTML += `<div style="background:#fffbe6;padding:8px 14px;border-radius:8px;font-size:12px;color:#333;"><b>${mealLabels[m.type] || m.type}</b>: ${m.name || t('result.export.noMealRecommendation')}${m.estimated_cost ? ` (¥${m.estimated_cost})` : ''}</div>`
+        mealsHTML += `<div style="background:#F3E9D0;padding:8px 14px;border-radius:8px;font-size:12px;color:#3A2E22;"><b>${mealLabels[m.type] || m.type}</b>: ${m.name || t('result.export.noMealRecommendation')}${m.estimated_cost ? ` (¥${m.estimated_cost})` : ''}</div>`
       })
       mealsHTML += '</div></div>'
     }
 
     daysHTML += `
-      <div style="background:#ffffff;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
-        <h3 style="margin:0 0 14px;color:#667eea;font-size:18px;">${t('result.export.dayTitle', { day: index + 1 })} <span style="font-size:14px;color:#888;margin-left:8px;">${day.date || ''}</span></h3>
+      <div style="background:#FBF7EE;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 6px 18px -8px rgba(36,29,24,.3);">
+        <h3 style="margin:0 0 14px;color:#C0562A;font-size:18px;">${t('result.export.dayTitle', { day: index + 1 })} <span style="font-size:14px;color:#888;margin-left:8px;">${day.date || ''}</span></h3>
         <div style="display:flex;flex-wrap:wrap;gap:12px;">
           ${attractionsHTML}
         </div>
@@ -1139,23 +1139,23 @@ const buildExportHTML = (mapDataUrl: string = ''): string => {
   if (tp.budget) {
     const b = tp.budget
     budgetHTML = `
-      <div style="background:#ffffff;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
-        <h3 style="margin:0 0 14px;color:#667eea;">${t('result.budget.title')}</h3>
+      <div style="background:#FBF7EE;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 6px 18px -8px rgba(36,29,24,.3);">
+        <h3 style="margin:0 0 14px;color:#C0562A;">${t('result.budget.title')}</h3>
         <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-          <div style="flex:1;min-width:120px;background:#f5f7fa;padding:14px;border-radius:10px;text-align:center;">
-            <div style="font-size:12px;color:#888;">${t('result.budget.attraction')}</div><div style="font-size:20px;font-weight:bold;color:#333;">¥${b.total_attractions || 0}</div>
+          <div style="flex:1;min-width:120px;background:#F1EADB;padding:14px;border-radius:10px;text-align:center;">
+            <div style="font-size:12px;color:#888;">${t('result.budget.attraction')}</div><div style="font-size:20px;font-weight:bold;color:#3A2E22;">¥${b.total_attractions || 0}</div>
           </div>
-          <div style="flex:1;min-width:120px;background:#f5f7fa;padding:14px;border-radius:10px;text-align:center;">
-            <div style="font-size:12px;color:#888;">${t('result.budget.hotel')}</div><div style="font-size:20px;font-weight:bold;color:#333;">¥${b.total_hotels || 0}</div>
+          <div style="flex:1;min-width:120px;background:#F1EADB;padding:14px;border-radius:10px;text-align:center;">
+            <div style="font-size:12px;color:#888;">${t('result.budget.hotel')}</div><div style="font-size:20px;font-weight:bold;color:#3A2E22;">¥${b.total_hotels || 0}</div>
           </div>
-          <div style="flex:1;min-width:120px;background:#f5f7fa;padding:14px;border-radius:10px;text-align:center;">
-            <div style="font-size:12px;color:#888;">${t('result.budget.meal')}</div><div style="font-size:20px;font-weight:bold;color:#333;">¥${b.total_meals || 0}</div>
+          <div style="flex:1;min-width:120px;background:#F1EADB;padding:14px;border-radius:10px;text-align:center;">
+            <div style="font-size:12px;color:#888;">${t('result.budget.meal')}</div><div style="font-size:20px;font-weight:bold;color:#3A2E22;">¥${b.total_meals || 0}</div>
           </div>
-          <div style="flex:1;min-width:120px;background:#f5f7fa;padding:14px;border-radius:10px;text-align:center;">
-            <div style="font-size:12px;color:#888;">${t('result.budget.transport')}</div><div style="font-size:20px;font-weight:bold;color:#333;">¥${b.total_transportation || 0}</div>
+          <div style="flex:1;min-width:120px;background:#F1EADB;padding:14px;border-radius:10px;text-align:center;">
+            <div style="font-size:12px;color:#888;">${t('result.budget.transport')}</div><div style="font-size:20px;font-weight:bold;color:#3A2E22;">¥${b.total_transportation || 0}</div>
           </div>
         </div>
-        <div style="background:#667eea;color:#fff;padding:16px 20px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="background:#C0562A;color:#fff;padding:16px 20px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:16px;">${t('result.budget.total')}</span>
           <span style="font-size:26px;font-weight:bold;">¥${b.total || 0}</span>
         </div>
@@ -1166,8 +1166,8 @@ const buildExportHTML = (mapDataUrl: string = ''): string => {
   let mapHTML = ''
   if (mapDataUrl) {
     mapHTML = `
-      <div style="background:#ffffff;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
-        <h3 style="margin:0 0 14px;color:#667eea;">${t('result.side.map')}</h3>
+      <div style="background:#FBF7EE;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 6px 18px -8px rgba(36,29,24,.3);">
+        <h3 style="margin:0 0 14px;color:#C0562A;">${t('result.side.map')}</h3>
         <img src="${mapDataUrl}" style="width:100%;height:auto;border-radius:10px;" />
       </div>`
   }
@@ -1179,37 +1179,37 @@ const buildExportHTML = (mapDataUrl: string = ''): string => {
       let weatherCards = ''
       tp.weather_info.forEach((w: any) => {
         weatherCards += `
-          <div style="flex:1;min-width:180px;background:#2b2d3c;padding:16px;border-radius:12px;margin:5px;">
-            <div style="text-align:center;color:#00e5ff;font-weight:bold;margin-bottom:12px;font-size:15px;">${w.date}</div>
+          <div style="flex:1;min-width:180px;background:#26433F;padding:16px;border-radius:12px;margin:5px;">
+            <div style="text-align:center;color:#EBCB85;font-weight:bold;margin-bottom:12px;font-size:15px;">${w.date}</div>
             <div style="display:flex;align-items:center;margin-bottom:10px;">
               <div style="line-height:1.2;">
-                <div style="font-size:12px;color:#99b0c9;margin-bottom:2px;">${t('result.export.daytime')}</div>
+                <div style="font-size:12px;color:rgba(234,224,203,.7);margin-bottom:2px;">${t('result.export.daytime')}</div>
                 <div style="font-size:14px;color:#fff;font-weight:600;">${w.day_weather} ${w.day_temp}°C</div>
               </div>
             </div>
             <div style="display:flex;align-items:center;margin-bottom:12px;">
               <div style="line-height:1.2;">
-                <div style="font-size:12px;color:#99b0c9;margin-bottom:2px;">${t('result.export.nighttime')}</div>
+                <div style="font-size:12px;color:rgba(234,224,203,.7);margin-bottom:2px;">${t('result.export.nighttime')}</div>
                 <div style="font-size:14px;color:#fff;font-weight:600;">${w.night_weather} ${w.night_temp}°C</div>
               </div>
             </div>
-            <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;text-align:center;font-size:12px;color:#99b0c9;">
+            <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:10px;text-align:center;font-size:12px;color:rgba(234,224,203,.7);">
               ${w.wind_direction} ${w.wind_power}
             </div>
           </div>`
       })
       weatherHTML = `
-        <div style="background:#ffffff;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
-          <h3 style="margin:0 0 14px;color:#667eea;">${t('result.export.weatherTitle')}</h3>
+        <div style="background:#FBF7EE;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 6px 18px -8px rgba(36,29,24,.3);">
+          <h3 style="margin:0 0 14px;color:#C0562A;">${t('result.export.weatherTitle')}</h3>
           <div style="display:flex;flex-wrap:wrap;gap:10px;">
             ${weatherCards}
           </div>
         </div>`
     } else {
       weatherHTML = `
-        <div style="background:#ffffff;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
-          <h3 style="margin:0 0 10px;color:#667eea;">${t('result.export.weatherTitle')}</h3>
-          <p style="font-size:14px;color:#333;line-height:1.8;">${typeof tp.weather_info === 'string' ? tp.weather_info : JSON.stringify(tp.weather_info)}</p>
+        <div style="background:#FBF7EE;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 6px 18px -8px rgba(36,29,24,.3);">
+          <h3 style="margin:0 0 10px;color:#C0562A;">${t('result.export.weatherTitle')}</h3>
+          <p style="font-size:14px;color:#3A2E22;line-height:1.8;">${typeof tp.weather_info === 'string' ? tp.weather_info : JSON.stringify(tp.weather_info)}</p>
         </div>`
     }
   }
@@ -1219,33 +1219,33 @@ const buildExportHTML = (mapDataUrl: string = ''): string => {
   if (tp.hotel_recommendations && tp.hotel_recommendations.length) {
     let hotelItems = ''
     tp.hotel_recommendations.forEach((h) => {
-      hotelItems += `<div style="background:#e3f2fd;padding:12px 16px;border-radius:10px;margin-bottom:8px;">
-        <b style="color:#1565c0;">${h.name || t('result.export.hotelFallback')}</b>
-        ${h.price ? `<span style="float:right;color:#e65100;font-weight:bold;">¥${h.price}${t('result.export.perNight')}</span>` : ''}
+      hotelItems += `<div style="background:#F1EADB;padding:12px 16px;border-radius:10px;margin-bottom:8px;">
+        <b style="color:#95401A;">${h.name || t('result.export.hotelFallback')}</b>
+        ${h.price ? `<span style="float:right;color:#C0562A;font-weight:bold;">¥${h.price}${t('result.export.perNight')}</span>` : ''}
         ${h.address ? `<p style="margin:4px 0 0;font-size:12px;color:#555;">${h.address}</p>` : ''}
       </div>`
     })
     hotelHTML = `
-      <div style="background:#ffffff;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
-        <h3 style="margin:0 0 14px;color:#1976d2;">${t('result.hotelTitle')}</h3>
+      <div style="background:#FBF7EE;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 6px 18px -8px rgba(36,29,24,.3);">
+        <h3 style="margin:0 0 14px;color:#C0562A;">${t('result.hotelTitle')}</h3>
         ${hotelItems}
       </div>`
   }
 
   // 底部二维码 — 项目开源地址
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent('https://github.com/1sdv/TripStar')}`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent('https://github.com/Mongovane/TripStar')}`
   const footerHTML = `
-    <div style="text-align:center;padding:24px 16px 16px;border-top:1px solid #e8e8e8;margin-top:8px;">
+    <div style="text-align:center;padding:24px 16px 16px;border-top:1px solid rgba(36,29,24,.12);margin-top:8px;">
       <img src="${qrUrl}" style="width:120px;height:120px;margin-bottom:10px;" crossorigin="anonymous" />
-      <div style="font-size:13px;color:#667eea;font-weight:600;margin-bottom:4px;">TripStar</div>
-      <div style="font-size:11px;color:#aaa;">https://github.com/1sdv/TripStar</div>
+      <div style="font-size:13px;color:#C0562A;font-weight:600;margin-bottom:4px;">TripStar</div>
+      <div style="font-size:11px;color:#aaa;">https://github.com/Mongovane/TripStar</div>
       <div style="font-size:11px;color:#bbb;margin-top:6px;">${t('result.export.footer')}</div>
     </div>`
 
   return `
-    <div style="width:800px;padding:30px;background:#f0f2f5;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;color:#333;">
+    <div style="width:800px;padding:30px;background:#F1EADB;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;color:#3A2E22;">
       <div style="text-align:center;margin-bottom:24px;">
-        <h1 style="margin:0;font-size:28px;color:#333;">${t('result.export.title', { city: tp.city })}</h1>
+        <h1 style="margin:0;font-size:28px;color:#3A2E22;">${t('result.export.title', { city: tp.city })}</h1>
         <p style="margin:6px 0 0;font-size:14px;color:#888;">${t('result.export.subtitle', {
           start: tp.start_date || '',
           end: tp.end_date || '',
