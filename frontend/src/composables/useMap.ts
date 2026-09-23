@@ -64,44 +64,6 @@ export function useMap(
     return false
   }
 
-  // 客户端用 Google Places 取景点实拍图（浏览器直连 Google，绕开国内服务器无法访问 Google 的限制）
-  const fetchGooglePhotos = async (
-    attractions: Array<{ name?: string; latitude?: number; longitude?: number }>
-  ): Promise<Record<string, string>> => {
-    const out: Record<string, string> = {}
-    let apiKey = getRuntimeGoogleMapsApiKey() || ''
-    if (!apiKey) {
-      try { apiKey = ((await getBackendRuntimeSettings()) as any)?.google_maps_api_key || '' } catch { /* ignore */ }
-    }
-    if (!apiKey || !attractions || !attractions.length) return out
-    try {
-      const loader = new GoogleMapsLoader({ apiKey, version: 'weekly', language: localeTag.value })
-      await loader.importLibrary('maps')
-      const placesLib: any = await loader.importLibrary('places')
-      const svc = new placesLib.PlacesService(document.createElement('div'))
-      for (const a of attractions) {
-        if (!a || !a.name) continue
-        const url = await new Promise<string>((resolve) => {
-          const req: any = { query: a.name, fields: ['photos'] }
-          try {
-            if (typeof a.latitude === 'number' && typeof a.longitude === 'number' && (window as any).google) {
-              req.locationBias = new (window as any).google.maps.LatLng(a.latitude, a.longitude)
-            }
-            svc.findPlaceFromQuery(req, (results: any) => {
-              const ph = results && results[0] && results[0].photos && results[0].photos[0]
-              resolve(ph ? ph.getUrl({ maxWidth: 720 }) : '')
-            })
-          } catch { resolve('') }
-        })
-        if (url) out[a.name as string] = url
-        await new Promise((r) => setTimeout(r, 120))
-      }
-    } catch (e) {
-      console.warn('Google Places 取图失败:', e)
-    }
-    return out
-  }
-
   // ---- 状态 ----
 const mapRefreshing = ref(false)
 const mapNotice = ref('')
@@ -897,7 +859,6 @@ const captureMapScreenshot = async (): Promise<string> => {
     mapRefreshing,
     mapNotice,
     mapProviderType,
-    fetchGooglePhotos,
     refreshMap,
     ensureMapReady,
     destroyCurrentMap,

@@ -138,6 +138,7 @@ async def proxy_attraction_image(name: Optional[str] = None, url: Optional[str] 
             return None
         key = getattr(settings, "google_maps_api_key", "") or ""
         if not key:
+            print("ℹ️ Google Places 跳过：后端未配置 google_maps_api_key（请在设置里填写并保存）")
             return None
         try:
             import requests
@@ -151,11 +152,15 @@ async def proxy_attraction_image(name: Optional[str] = None, url: Optional[str] 
                 params={"query": place_name, "key": key, "language": "zh-CN"},
                 proxies=proxies, timeout=8,
             )
-            results = (r.json() or {}).get("results") or []
-            if not results:
+            body = r.json() or {}
+            status = body.get("status")
+            results = body.get("results") or []
+            if status != "OK" or not results:
+                print(f"ℹ️ Google Places 无结果（{place_name}）: status={status} {body.get('error_message','')}")
                 return None
             photos = results[0].get("photos") or []
             if not photos:
+                print(f"ℹ️ Google Places 该地点无照片（{place_name}）")
                 return None
             ref = photos[0].get("photo_reference")
             if not ref:
@@ -168,9 +173,11 @@ async def proxy_attraction_image(name: Optional[str] = None, url: Optional[str] 
             )
             ct = pr.headers.get("Content-Type", "")
             if pr.status_code == 200 and pr.content and ct.startswith("image"):
+                print(f"✅ Google Places 取图成功（{place_name}）")
                 return pr.content, ct
+            print(f"ℹ️ Google Places 照片下载失败（{place_name}）: {pr.status_code} {ct}")
         except Exception as e:
-            print(f"⚠️ Google Places 取图失败: {place_name} - {e}")
+            print(f"⚠️ Google Places 取图异常（{place_name}）: {e}")
         return None
 
     if name:

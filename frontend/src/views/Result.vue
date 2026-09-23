@@ -614,7 +614,7 @@ const attractionPhotos = ref<Record<string, string>>({})
 const activeSection = ref('overview')
 const activeDays = ref<number[]>([0]) // 默认展开第一天
 const {
-  mapRefreshing, mapNotice, mapProviderType, fetchGooglePhotos, refreshMap, ensureMapReady, destroyCurrentMap, captureMapScreenshot,
+  mapRefreshing, mapNotice, mapProviderType, refreshMap, ensureMapReady, destroyCurrentMap, captureMapScreenshot,
 } = useMap(tripPlan, { escapeHtml: (value: unknown) => escapeHtml(value) })
 
 type OverviewAttractionItem = {
@@ -1044,25 +1044,6 @@ const loadAttractionPhotos = async () => {
   for (const name of uniqueNames) {
     attractionPhotos.value[name] = `${apiBase}/api/poi/image?name=${encodeURIComponent(name)}`
   }
-
-  // 若配置了 Google Key：浏览器端用 Google Places 取更可靠的实拍图，覆盖占位
-  void (async () => {
-    try {
-      const attrs = (tripPlan.value?.days || []).flatMap((d) =>
-        d.attractions.map((a) => ({
-          name: a.name,
-          latitude: a.location?.latitude,
-          longitude: a.location?.longitude,
-        }))
-      )
-      const photos = await fetchGooglePhotos(attrs)
-      Object.entries(photos).forEach(([name, url]) => {
-        if (url) attractionPhotos.value[name] = url
-      })
-    } catch (e) {
-      /* ignore */
-    }
-  })()
 }
 
 // 获取景点图片
