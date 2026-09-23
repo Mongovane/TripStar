@@ -71,10 +71,8 @@
       <!-- 悬停信息卡：完整信息、不遮挡其它节点 -->
       <foreignObject v-if="tip" :x="tip.x" :y="tip.y" :width="tip.w" height="168" class="kg-tip-fo">
         <div xmlns="http://www.w3.org/1999/xhtml" class="kg-tip-card">
-          <div class="kg-tip-cat" :style="{ color: colorOf(tip.n.category) }">
-            <span class="kg-tip-dot" :style="{ background: colorOf(tip.n.category) }"></span>{{ tip.n.catName }}
-          </div>
           <div class="kg-tip-name">{{ tip.n.name }}</div>
+          <div class="kg-tip-sub">{{ tip.n.catName }}</div>
           <div v-for="(l, i) in tip.lines" :key="i" class="kg-tip-line">{{ l }}</div>
         </div>
       </foreignObject>
@@ -311,30 +309,21 @@ onMounted(computeLayout)
   border: 1px solid rgba(36, 29, 24, 0.16);
   border-radius: 6px;
   box-shadow: 0 12px 30px -12px rgba(36, 29, 24, 0.5);
-  padding: 10px 13px;
+  padding: 10px 14px;
   font-family: var(--sans, system-ui, sans-serif);
 }
-.kg-tip-cat {
-  font-family: var(--mono, monospace);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.kg-tip-name {
+  font-family: 'Newsreader', Georgia, serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--rust-deep, #95401A);
+  line-height: 1.25;
   margin-bottom: 3px;
 }
-.kg-tip-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
-.kg-tip-name {
-  font-family: var(--serif, Georgia, serif);
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--ink, #241D18);
-  line-height: 1.25;
-  margin-bottom: 4px;
-}
+.kg-tip-sub,
 .kg-tip-line {
-  font-size: 11.5px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.55;
   color: var(--ink-soft, #6B5C4C);
 }
 </style>
