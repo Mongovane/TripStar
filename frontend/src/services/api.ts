@@ -124,11 +124,18 @@ export const setRuntimeMapSecurityCode = (value: string): string => {
 
 export const getRuntimeGoogleMapsApiKey = (): string => {
   if (typeof window === 'undefined') return ''
-  return normalizeText(window.localStorage.getItem(RUNTIME_GOOGLE_MAPS_API_KEY_STORAGE_KEY))
+  const v = normalizeText(window.localStorage.getItem(RUNTIME_GOOGLE_MAPS_API_KEY_STORAGE_KEY))
+  // 忽略被掩码(•)污染的旧值，避免用掩码当 key 导致地图加载失败
+  if (v && v.indexOf('\u2022') >= 0) return ''
+  return v
 }
 
 export const setRuntimeGoogleMapsApiKey = (value: string): string => {
   const normalized = normalizeText(value)
+  // 拒绝写入被掩码(•)污染的值，避免破坏地图 key
+  if (normalized && normalized.indexOf('\u2022') >= 0) {
+    return getRuntimeGoogleMapsApiKey()
+  }
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(RUNTIME_GOOGLE_MAPS_API_KEY_STORAGE_KEY, normalized)
   }
@@ -245,9 +252,10 @@ export async function getRuntimeSettings(): Promise<RuntimeSettings> {
   const apiBaseUrl = getRuntimeApiBaseUrl()
   const mapJsKey = getRuntimeMapJsKey() || backend.vite_amap_web_js_key
 
-  // Google key：后端有值时返回的是掩码（真值保存在 localStorage / 后端 env），不回写覆盖；
-  // 后端确实为空、而前端(localStorage)有 → 自动推给后端（重建重置 runtime_settings.json 的兜底）
-  if (!backend.google_maps_api_key) {
+  // Google key：后端返回真值时同步到 localStorage 供地图使用；后端为空但前端有 → 自动推给后端
+  if (backend.google_maps_api_key) {
+    setRuntimeGoogleMapsApiKey(backend.google_maps_api_key)
+  } else {
     const localGoogle = getRuntimeGoogleMapsApiKey()
     if (localGoogle) {
       try {
@@ -292,10 +300,7 @@ export async function saveRuntimeSettings(settings: RuntimeSettings): Promise<Ru
 
   const apiBaseUrl = setRuntimeApiBaseUrl(targetApiBaseUrl)
   const mapJsKey = setRuntimeMapJsKey(settings.vite_amap_web_js_key || backend.vite_amap_web_js_key)
-  // 仅当用户输入了真实(非掩码)Google key 时才写 localStorage；否则保持现有真值
-  if (settings.google_maps_api_key && settings.google_maps_api_key.indexOf('\u2022') < 0) {
-    setRuntimeGoogleMapsApiKey(settings.google_maps_api_key)
-  }
+  setRuntimeGoogleMapsApiKey(settings.google_maps_api_key || backend.google_maps_api_key)
   const mapSecurityCode = setRuntimeMapSecurityCode(settings.amap_security_js_code)
 
   emitRuntimeSettingsUpdated()
