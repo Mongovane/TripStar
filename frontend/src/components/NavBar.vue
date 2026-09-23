@@ -183,7 +183,7 @@ import { reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import type { RuntimeSettings } from '@/types'
-import { getRuntimeSettings, saveRuntimeSettings } from '@/services/api'
+import { getRuntimeSettings, saveRuntimeSettings, getRuntimeGoogleMapsApiKey } from '@/services/api'
 
 const { t, locale } = useI18n()
 const settingsVisible = ref(false)
@@ -220,7 +220,7 @@ const applyRuntimeSettings = (settings: RuntimeSettings) => {
   settingsForm.vite_amap_web_key = settings.vite_amap_web_key || ''
   settingsForm.vite_amap_web_js_key = settings.vite_amap_web_js_key || ''
   settingsForm.amap_security_js_code = settings.amap_security_js_code || ''
-  settingsForm.google_maps_api_key = settings.google_maps_api_key || ''
+  settingsForm.google_maps_api_key = settings.google_maps_api_key || getRuntimeGoogleMapsApiKey() || ''
   settingsForm.google_maps_proxy = settings.google_maps_proxy || ''
   settingsForm.xhs_cookie = settings.xhs_cookie || ''
   settingsForm.openai_api_key = settings.openai_api_key || ''

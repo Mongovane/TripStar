@@ -245,6 +245,18 @@ export async function getRuntimeSettings(): Promise<RuntimeSettings> {
   // 同步 Google Maps API Key 到 localStorage 供前端地图组件读取
   if (backend.google_maps_api_key) {
     setRuntimeGoogleMapsApiKey(backend.google_maps_api_key)
+  } else {
+    // 后端缺 key、但前端(localStorage)有 → 自动推给后端
+    // （每次 --no-cache 重建会重置 runtime_settings.json，而 localStorage 仍在，这里兜底同步）
+    const localGoogle = getRuntimeGoogleMapsApiKey()
+    if (localGoogle) {
+      try {
+        await updateBackendRuntimeSettings({ google_maps_api_key: localGoogle })
+        backend.google_maps_api_key = localGoogle
+      } catch (e) {
+        /* ignore */
+      }
+    }
   }
 
   return {
