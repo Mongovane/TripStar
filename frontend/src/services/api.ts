@@ -11,6 +11,7 @@ import { i18n } from '@/i18n'
 
 const ENV_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 const ENV_AMAP_WEB_JS_KEY = import.meta.env.VITE_AMAP_WEB_JS_KEY ?? ''
+const ENV_AMAP_SECURITY_JS_CODE = import.meta.env.VITE_AMAP_SECURITY_JS_CODE ?? ''
 const RUNTIME_API_BASE_STORAGE_KEY = 'tripstar.runtime.api_base_url'
 const RUNTIME_AMAP_WEB_JS_KEY_STORAGE_KEY = 'tripstar.runtime.amap_web_js_key'
 const RUNTIME_GOOGLE_MAPS_API_KEY_STORAGE_KEY = 'tripstar.runtime.google_maps_api_key'
@@ -48,6 +49,7 @@ const resolveDefaultApiBaseUrl = (): string => {
 
 const DEFAULT_API_BASE_URL = resolveDefaultApiBaseUrl()
 const DEFAULT_AMAP_WEB_JS_KEY = normalizeText(ENV_AMAP_WEB_JS_KEY)
+const DEFAULT_AMAP_SECURITY_JS_CODE = normalizeText(ENV_AMAP_SECURITY_JS_CODE)
 
 interface SubmitTripPlanResponse {
   task_id: string
@@ -107,8 +109,9 @@ export const setRuntimeMapJsKey = (value: string): string => {
 const RUNTIME_AMAP_SECURITY_JS_CODE_STORAGE_KEY = 'tripstar.runtime.amap_security_js_code'
 
 export const getRuntimeMapSecurityCode = (): string => {
-  if (typeof window === 'undefined') return ''
-  return normalizeText(window.localStorage.getItem(RUNTIME_AMAP_SECURITY_JS_CODE_STORAGE_KEY))
+  if (typeof window === 'undefined') return DEFAULT_AMAP_SECURITY_JS_CODE
+  const saved = normalizeText(window.localStorage.getItem(RUNTIME_AMAP_SECURITY_JS_CODE_STORAGE_KEY))
+  return saved || DEFAULT_AMAP_SECURITY_JS_CODE
 }
 
 export const setRuntimeMapSecurityCode = (value: string): string => {
@@ -242,12 +245,9 @@ export async function getRuntimeSettings(): Promise<RuntimeSettings> {
   const apiBaseUrl = getRuntimeApiBaseUrl()
   const mapJsKey = getRuntimeMapJsKey() || backend.vite_amap_web_js_key
 
-  // 同步 Google Maps API Key 到 localStorage 供前端地图组件读取
-  if (backend.google_maps_api_key) {
-    setRuntimeGoogleMapsApiKey(backend.google_maps_api_key)
-  } else {
-    // 后端缺 key、但前端(localStorage)有 → 自动推给后端
-    // （每次 --no-cache 重建会重置 runtime_settings.json，而 localStorage 仍在，这里兜底同步）
+  // Google key：后端有值时返回的是掩码（真值保存在 localStorage / 后端 env），不回写覆盖；
+  // 后端确实为空、而前端(localStorage)有 → 自动推给后端（重建重置 runtime_settings.json 的兜底）
+  if (!backend.google_maps_api_key) {
     const localGoogle = getRuntimeGoogleMapsApiKey()
     if (localGoogle) {
       try {
@@ -292,7 +292,10 @@ export async function saveRuntimeSettings(settings: RuntimeSettings): Promise<Ru
 
   const apiBaseUrl = setRuntimeApiBaseUrl(targetApiBaseUrl)
   const mapJsKey = setRuntimeMapJsKey(settings.vite_amap_web_js_key || backend.vite_amap_web_js_key)
-  setRuntimeGoogleMapsApiKey(settings.google_maps_api_key || backend.google_maps_api_key)
+  // 仅当用户输入了真实(非掩码)Google key 时才写 localStorage；否则保持现有真值
+  if (settings.google_maps_api_key && settings.google_maps_api_key.indexOf('\u2022') < 0) {
+    setRuntimeGoogleMapsApiKey(settings.google_maps_api_key)
+  }
   const mapSecurityCode = setRuntimeMapSecurityCode(settings.amap_security_js_code)
 
   emitRuntimeSettingsUpdated()

@@ -135,6 +135,7 @@ _SECRET_SETTING_KEYS = {
     "openai_api_key",
     "xhs_cookie",
     "vite_amap_web_key",
+    "google_maps_api_key",
 }
 _MASK_CHAR = "\u2022"
 
