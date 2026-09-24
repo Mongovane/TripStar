@@ -238,14 +238,14 @@
     "chat": {
       "toggle": "AI オンライン",
       "title": "旅程 AI チャット",
-      "welcome": "こんにちは。TripStar AI です。旅程に関することは何でも聞いてください。例：",
+      "welcome": "ガーガー〜旅のあひるです 🐤 この旅程のことは何でも聞いてね。例：",
       "quickPriceLabel": "料金確認",
       "quickSuitabilityLabel": "高齢者向け？",
       "quickMealLabel": "食費確認",
       "quickPriceQuestion": "1 日目の各スポットの入場料はいくらですか？",
       "quickSuitabilityQuestion": "この旅程は高齢者にも向いていますか？",
       "quickMealQuestion": "おすすめレストランの価格帯は？",
-      "placeholder": "旅程について質問を入力...",
+      "placeholder": "あひるに旅程のことを聞く…",
       "send": "送信",
       "replyFallback": "申し訳ありません。返信を取得できませんでした。後でもう一度お試しください",
       "networkError": "ネットワーク接続に問題があります。バックエンドが起動しているか確認してください"

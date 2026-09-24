@@ -237,15 +237,15 @@
     "backCreateTrip": "返回首页创建行程",
     "chat": {
       "toggle": "AI 在线",
-      "title": "行程智能问答",
-      "welcome": "您好！我是旅途星辰 AI，可以问我关于行程的任何问题，例如：",
+      "title": "小鸭问答台",
+      "welcome": "嘎嘎～我是你的旅途小鸭 🐤 这趟行程的事尽管问我，比如：",
       "quickPriceLabel": "票价查询",
       "quickSuitabilityLabel": "适合老人？",
       "quickMealLabel": "餐饮价格",
       "quickPriceQuestion": "第一天的景点门票分别是多少钱？",
       "quickSuitabilityQuestion": "这个行程适合老人吗？",
       "quickMealQuestion": "推荐的餐厅价格如何？",
-      "placeholder": "输入您关于行程的问题...",
+      "placeholder": "问问小鸭关于行程的事…",
       "send": "发送",
       "replyFallback": "抱歉，未能获取回复，请稍后再试",
       "networkError": "网络连接异常，请检查后端服务是否已启动"

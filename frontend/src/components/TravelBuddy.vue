@@ -2,9 +2,11 @@
   <div
     id="travel-buddy"
     ref="rootRef"
-    :class="{ walking: isWalking, sleeping, 'face-left': facing < 0, happy }"
+    :class="{ walking: isWalking, sleeping, 'face-left': facing < 0, happy, spinning }"
     @pointerdown="onPointerDown"
     @pointerup="onPointerUp"
+    @pointerenter="onHover"
+    @dblclick="onDblClick"
     @click.stop
   >
     <div class="tb-bubble" :class="{ show: bubbleShow }">{{ bubbleText }}</div>
@@ -64,6 +66,11 @@ let bubbleTimer = 0
 let downX = 0, downY = 0, downT = 0
 
 const quacks = ['嘎嘎～', '咕咕！', '呱！', '嘎!', '咕嘎咕嘎～']
+const hints = ['点我陪你聊 🐤', '嘎~ 有问题问我', '点我唠唠行程 🗺️']
+const idleQuips = ['带好雨伞哦 ☔', '多喝水呀~', '这一站不错!', '记得防晒 🧴', '别忘了拍照 📸', '嘎~ 走累啦', '玩得开心呀!']
+const spinning = ref(false)
+let hintCooldownUntil = 0
+let quipTimer = 0
 
 function place() {
   if (rootRef.value) rootRef.value.style.transform = `translate(${x - 41}px, ${y - 88}px)`
@@ -145,6 +152,26 @@ function onPointerUp(e: PointerEvent) {
   scheduleNap()
 }
 
+// 悬停 → 提示可点开聊天（限频，避免频繁弹）
+function onHover() {
+  if (isWalking.value || sleeping.value) return
+  const now = performance.now()
+  if (now < hintCooldownUntil) return
+  hintCooldownUntil = now + 9000
+  say(hints[Math.floor(Math.random() * hints.length)], 1600)
+}
+
+// 双击 → 开心转个圈
+function onDblClick(e: MouseEvent) {
+  e.stopPropagation()
+  wake()
+  spinning.value = false
+  requestAnimationFrame(() => { spinning.value = true })
+  say('嘎哈哈~ 🌀', 1200)
+  setTimeout(() => { spinning.value = false }, 720)
+  scheduleNap()
+}
+
 function onResize() { W = window.innerWidth; H = window.innerHeight }
 
 function loop(now?: number) {
@@ -180,7 +207,12 @@ onMounted(() => {
     if (Math.random() < 0.6) { rootRef.value.classList.add('blink'); window.setTimeout(() => rootRef.value && rootRef.value.classList.remove('blink'), 130) }
   }, 2600)
   scheduleNap()
-  window.setTimeout(() => say('嗨，我陪你逛！', 2200), 800)
+  window.setTimeout(() => say('嗨，我陪你逛！点我聊聊 🐤', 2400), 800)
+  // 闲时偶尔冒一句俏皮话
+  quipTimer = window.setInterval(() => {
+    if (isWalking.value || sleeping.value || bubbleShow.value) return
+    if (Math.random() < 0.35) say(idleQuips[Math.floor(Math.random() * idleQuips.length)], 1800)
+  }, 24000)
 })
 
 onBeforeUnmount(() => {
@@ -189,6 +221,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick)
   window.removeEventListener('resize', onResize)
   clearInterval(blinkTimer)
+  clearInterval(quipTimer)
   clearTimeout(bubbleTimer)
   clearTimeout(napTimer)
 })
@@ -224,6 +257,8 @@ onBeforeUnmount(() => {
 @keyframes tb-twinkle { 0%,100% { opacity: .9; transform: rotate(0) scale(1); } 50% { opacity: .5; transform: rotate(20deg) scale(1.15); } }
 #travel-buddy.happy .tb-body { animation: tb-hop .5s ease !important; }
 @keyframes tb-hop { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-14px); } }
+#travel-buddy.spinning .tb-flip { animation: tb-spin .72s cubic-bezier(.5,0,.3,1); }
+@keyframes tb-spin { 0% { transform: rotate(0) scale(1); } 55% { transform: rotate(300deg) scale(1.12); } 100% { transform: rotate(360deg) scale(1); } }
 
 .tb-bubble {
   position: absolute; left: 50%; top: -12px; transform: translate(-50%,-100%) scale(0); transform-origin: bottom center;

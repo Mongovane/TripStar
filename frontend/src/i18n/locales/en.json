@@ -238,14 +238,14 @@
     "chat": {
       "toggle": "AI Online",
       "title": "Itinerary Q&A",
-      "welcome": "Hi! I am TripStar AI. Ask me anything about your itinerary, for example:",
+      "welcome": "Quack~ I'm your travel duckling 🐤 Ask me anything about this trip, like:",
       "quickPriceLabel": "Ticket Price",
       "quickSuitabilityLabel": "Senior Friendly?",
       "quickMealLabel": "Meal Cost",
       "quickPriceQuestion": "How much are the attraction tickets on day 1?",
       "quickSuitabilityQuestion": "Is this itinerary suitable for seniors?",
       "quickMealQuestion": "What are the prices of recommended restaurants?",
-      "placeholder": "Ask your itinerary question...",
+      "placeholder": "Ask the duckling about your trip…",
       "send": "Send",
       "replyFallback": "Sorry, no reply was received. Please try again later",
       "networkError": "Network error, please check whether backend service is running"

@@ -3132,12 +3132,6 @@ const escapeHtml = (value: unknown): string => {
   display: none !important;
 }
 
-/* 高德底图暖色化：接近 Google 古地图观感。只对底图 canvas 上滤镜，
-   不影响标记/信息窗（它们是 DOM 叠层，在 canvas 之上） */
-#amap-container canvas {
-  filter: sepia(0.42) saturate(1.28) hue-rotate(-6deg) brightness(1.04);
-}
-
 .tripstar-map-marker {
   position: relative;
   width: 34px;

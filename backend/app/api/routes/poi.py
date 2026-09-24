@@ -180,29 +180,70 @@ async def proxy_attraction_image(name: Optional[str] = None, url: Optional[str] 
             print(f"⚠️ Google Places 取图异常（{place_name}）: {e}")
         return None
 
+    def _wikipedia_photo(place_name: str):
+        """公共免费 API：维基百科取景点主图（无需 key，海外覆盖好）。返回 (bytes, content_type) 或 None。"""
+        try:
+            import requests
+            headers = {"User-Agent": "TripStar/1.0 (+https://github.com/Mongovane/TripStar)"}
+            for lang in ("zh", "en"):
+                base = f"https://{lang}.wikipedia.org/w/api.php"
+                sr = requests.get(base, params={
+                    "action": "query", "list": "search", "srsearch": place_name,
+                    "srlimit": 1, "format": "json",
+                }, headers=headers, timeout=8)
+                hits = (((sr.json() or {}).get("query") or {}).get("search") or [])
+                if not hits:
+                    continue
+                title = hits[0].get("title")
+                if not title:
+                    continue
+                pr = requests.get(base, params={
+                    "action": "query", "titles": title, "prop": "pageimages",
+                    "pithumbsize": 720, "format": "json", "redirects": 1,
+                }, headers=headers, timeout=8)
+                pages = (((pr.json() or {}).get("query") or {}).get("pages") or {})
+                thumb = None
+                for _pid, page in pages.items():
+                    ti = page.get("thumbnail")
+                    if ti and ti.get("source"):
+                        thumb = ti["source"]
+                        break
+                if not thumb:
+                    continue
+                img = requests.get(thumb, headers=headers, timeout=10)
+                ct = img.headers.get("Content-Type", "")
+                if img.status_code == 200 and img.content and ct.startswith("image"):
+                    print(f"✅ 维基百科取图成功（{place_name} / {lang}:{title}）")
+                    return img.content, ct
+        except Exception as e:
+            print(f"⚠️ 维基百科取图失败（{place_name}）: {e}")
+        return None
+
     if name:
-        # 优先 Google Places（配置了 Key 时更可靠，海外景点也有图）
-        g = _google_place_photo(name)
-        if g is not None:
-            data, content_type = g
-            return Response(
-                content=data,
-                media_type=content_type,
-                headers={"Cache-Control": "public, max-age=86400", "X-Image-Source": "google"},
-            )
+        # 1) 小红书优先
         try:
             result = await get_photo_bytes_from_xhs(f"{name} 风景")
         except Exception as e:
-            print(f"⚠️ 景点图获取失败（占位兜底）: {name} - {e}")
+            print(f"⚠️ 小红书取图失败: {name} - {e}")
             result = None
-        if result is None:
-            return _placeholder(name)
-        data, content_type = result
-        return Response(
-            content=data,
-            media_type=content_type,
-            headers={"Cache-Control": "public, max-age=86400"},
-        )
+        if result is not None:
+            data, content_type = result
+            return Response(content=data, media_type=content_type,
+                            headers={"Cache-Control": "public, max-age=86400", "X-Image-Source": "xhs"})
+        # 2) 维基百科（公共免费，无需 key）
+        w = _wikipedia_photo(name)
+        if w is not None:
+            data, content_type = w
+            return Response(content=data, media_type=content_type,
+                            headers={"Cache-Control": "public, max-age=86400", "X-Image-Source": "wikipedia"})
+        # 3) Google Places（若配置了 key 且开通结算）
+        g = _google_place_photo(name)
+        if g is not None:
+            data, content_type = g
+            return Response(content=data, media_type=content_type,
+                            headers={"Cache-Control": "public, max-age=86400", "X-Image-Source": "google"})
+        # 4) 兜底占位
+        return _placeholder(name)
 
     if url:
         try:
