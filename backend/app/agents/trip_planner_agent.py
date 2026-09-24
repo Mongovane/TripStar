@@ -671,6 +671,9 @@ class MultiAgentTripPlanner:
         _budget_limit = getattr(request, 'budget_limit', None)
         if _budget_limit:
             query += f"- 总预算上限: {_budget_limit}元(全部出行人合计)，请在该预算内安排酒店、餐饮与景点，确实无法满足时在 overall_suggestions 中说明超出原因\n"
+        _companions = [c for c in (getattr(request, 'companions', None) or []) if c]
+        if _companions:
+            query += f"- 同行人: {'、'.join(_companions)}，请据此调整景点强度、步行距离、餐饮与住宿选择\n"
         query += f"- 预算口径: budget 中所有金额均为 {_travelers} 人合计的人民币金额；门票、餐饮按人数计算，酒店按所需房间数计算；境外目的地也请统一换算为人民币\n"
         if memory_snippet:
             query += f"""
@@ -702,9 +705,11 @@ class MultiAgentTripPlanner:
 {hotels.get(city, '无')}
 """
 
-        query += """
+        _pace = (getattr(request, 'pace', '') or '适中').strip()
+        _per_day = {"紧凑": "3-4", "悠闲": "1-2"}.get(_pace, "2-3")
+        query += f"""
 **要求:**
-1. 每天安排2-3个景点(城际移动日可减少为1-2个)
+1. 行程节奏为「{_pace}」，每天安排{_per_day}个景点(城际移动日可减少为1-2个)
 2. 每天必须包含早中晚三餐
 3. 每天推荐一个具体的酒店(从酒店信息中选择)
 4. 考虑景点之间的距离和交通方式

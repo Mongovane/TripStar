@@ -47,7 +47,8 @@
       "openaiModel": "OpenAI 格式 Model",
       "openaiApiKey": "OpenAI 格式 API Key",
       "xhsCookie": "小紅書 Cookie",
-      "amapSecurityCode": "高德地図 セキュリティコード (JSCode)"
+      "amapSecurityCode": "高德地図 セキュリティコード (JSCode)",
+      "adminToken": "管理パスコード"
     },
     "placeholders": {
       "apiBaseUrl": "例: http://localhost:8000",
@@ -60,8 +61,10 @@
     "messages": {
       "loadFailed": "設定の読み込みに失敗しました",
       "saveFailed": "設定の保存に失敗しました",
-      "saved": "設定を保存して適用しました"
-    }
+      "saved": "設定を保存して適用しました",
+      "adminTokenInvalid": "管理パスコードが正しくないため、設定を保存できませんでした"
+    },
+    "adminTokenHint": "このサーバーでは設定の変更に管理パスコードが必要です。パスコードはこのブラウザにのみ保存されます。"
   },
   "home": {
     "heroBadge": "AI 旅行プランニングエンジン",
@@ -125,7 +128,17 @@
       "open": "詳細を見る",
       "empty": "保存済みのプランはありません",
       "updatedAt": "更新",
-      "loadFailed": "履歴プランの読み込みに失敗しました"
+      "loadFailed": "履歴プランの読み込みに失敗しました",
+      "rename": "名前を変更",
+      "renamePlaceholder": "旅の名前（空欄なら都市名を表示）",
+      "delete": "削除",
+      "deleteConfirm": "この旅程を履歴から削除しますか？",
+      "deleted": "履歴から削除しました",
+      "renamed": "名前を変更しました",
+      "renameFailed": "名前を変更できませんでした",
+      "deleteFailed": "削除できませんでした",
+      "save": "保存",
+      "cancel": "キャンセル"
     },
     "loading": {
       "initializing": "初期化中...",
@@ -150,7 +163,12 @@
       "errorHint": "入力内容はそのまま残っています。すぐに再試行するか、戻って修正してください。",
       "retry": "もう一度作成",
       "backToEdit": "条件を修正",
-      "errorDetail": "原因"
+      "errorDetail": "原因",
+      "cancel": "作成を中止",
+      "cancelling": "中止しています…",
+      "canceled": "作成を中止しました",
+      "cancelFailed": "中止できませんでした。少し待って再試行してください",
+      "resumed": "作成途中のプランに再接続しました"
     },
     "messages": {
       "travelDaysTooLong": "旅行日数は 30 日以内にしてください",
@@ -164,7 +182,34 @@
     "travelersUnit": "名",
     "budgetLimitLabel": "総予算の上限（人民元・任意）",
     "budgetLimitPlaceholder": "上限なし",
-    "pastDateNotAllowed": "出発日に過去の日付は選べません"
+    "pastDateNotAllowed": "出発日に過去の日付は選べません",
+    "paceLabel": "旅のペース",
+    "pace": {
+      "compact": "ぎっしり（1日 3〜4 か所）",
+      "moderate": "ふつう（1日 2〜3 か所）",
+      "relaxed": "ゆったり（1日 1〜2 か所）"
+    },
+    "companionsLabel": "同行者（複数選択可）",
+    "companions": {
+      "solo": "ひとり旅",
+      "couple": "カップル",
+      "kids": "子ども連れ",
+      "elders": "高齢者と一緒",
+      "friends": "友人と"
+    },
+    "hotCitiesLabel": "人気の行き先",
+    "hotCities": [
+      "北京",
+      "上海",
+      "成都",
+      "西安",
+      "杭州",
+      "厦門",
+      "重慶",
+      "大理"
+    ],
+    "draftRestored": "前回の入力内容を復元しました",
+    "clearDraft": "入力をリセット"
   },
   "result": {
     "backHome": "ホームへ戻る",
@@ -399,7 +444,8 @@
       "noReservation": "なし",
       "suggestionsTitle": "旅のアドバイス",
       "viewReservations": "要予約スポットを見る"
-    }
+    },
+    "newTrip": "新しい旅程"
   },
   "buddy": {
     "quacks": [

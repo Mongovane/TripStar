@@ -103,6 +103,8 @@ export interface TripFormData {
   free_text_input: string
   travelers?: number
   budget_limit?: number | null
+  pace?: string
+  companions?: string[]
   language?: string
   user_id?: string
 }
@@ -124,6 +126,7 @@ export interface TripHistoryItem {
   travel_days: number
   updated_at: string
   overall_suggestions?: string
+  title?: string
 }
 
 export type TripTaskStatus = 'processing' | 'completed' | 'failed'

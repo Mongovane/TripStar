@@ -47,7 +47,8 @@
       "openaiModel": "OpenAI-Compatible Model",
       "openaiApiKey": "OpenAI-Compatible API Key",
       "xhsCookie": "Xiaohongshu Cookie",
-      "amapSecurityCode": "Amap Security Code (JSCode)"
+      "amapSecurityCode": "Amap Security Code (JSCode)",
+      "adminToken": "Admin passcode"
     },
     "placeholders": {
       "apiBaseUrl": "e.g. http://localhost:8000",
@@ -60,8 +61,10 @@
     "messages": {
       "loadFailed": "Failed to load settings",
       "saveFailed": "Failed to save settings",
-      "saved": "Settings saved and applied"
-    }
+      "saved": "Settings saved and applied",
+      "adminTokenInvalid": "Wrong admin passcode. Settings weren't saved."
+    },
+    "adminTokenHint": "This server requires an admin passcode to change settings. It's stored only in this browser."
   },
   "home": {
     "heroBadge": "AI Intelligent Itinerary Engine",
@@ -125,7 +128,17 @@
       "open": "Open",
       "empty": "No saved plans yet",
       "updatedAt": "Updated",
-      "loadFailed": "Failed to load plan history"
+      "loadFailed": "Failed to load plan history",
+      "rename": "Rename",
+      "renamePlaceholder": "Name this trip (leave empty to show the city)",
+      "delete": "Delete",
+      "deleteConfirm": "Remove this trip from your history?",
+      "deleted": "Removed from history",
+      "renamed": "Renamed",
+      "renameFailed": "Couldn't rename",
+      "deleteFailed": "Couldn't delete",
+      "save": "Save",
+      "cancel": "Cancel"
     },
     "loading": {
       "initializing": "Initializing...",
@@ -150,7 +163,12 @@
       "errorHint": "Your answers are still here. Retry now, or go back and adjust them first.",
       "retry": "Try again",
       "backToEdit": "Edit request",
-      "errorDetail": "Reason"
+      "errorDetail": "Reason",
+      "cancel": "Cancel",
+      "cancelling": "Cancelling…",
+      "canceled": "Generation cancelled",
+      "cancelFailed": "Couldn't cancel. Try again shortly.",
+      "resumed": "Picked up the plan that was still generating"
     },
     "messages": {
       "travelDaysTooLong": "Trip duration cannot exceed 30 days",
@@ -164,7 +182,34 @@
     "travelersUnit": "people",
     "budgetLimitLabel": "Total budget cap (CNY, optional)",
     "budgetLimitPlaceholder": "No limit",
-    "pastDateNotAllowed": "Start date can't be in the past"
+    "pastDateNotAllowed": "Start date can't be in the past",
+    "paceLabel": "Pace",
+    "pace": {
+      "compact": "Packed (3–4 stops a day)",
+      "moderate": "Balanced (2–3 a day)",
+      "relaxed": "Relaxed (1–2 a day)"
+    },
+    "companionsLabel": "Traveling with (pick any)",
+    "companions": {
+      "solo": "Solo",
+      "couple": "Partner",
+      "kids": "Kids",
+      "elders": "Older relatives",
+      "friends": "Friends"
+    },
+    "hotCitiesLabel": "Popular destinations",
+    "hotCities": [
+      "Beijing",
+      "Shanghai",
+      "Chengdu",
+      "Xi'an",
+      "Hangzhou",
+      "Xiamen",
+      "Chongqing",
+      "Dali"
+    ],
+    "draftRestored": "Restored what you entered last time",
+    "clearDraft": "Start over"
   },
   "result": {
     "backHome": "Back to Home",
@@ -399,7 +444,8 @@
       "noReservation": "None",
       "suggestionsTitle": "Travel tips",
       "viewReservations": "See places to book"
-    }
+    },
+    "newTrip": "New trip"
   },
   "buddy": {
     "quacks": [

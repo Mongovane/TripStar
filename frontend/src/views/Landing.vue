@@ -101,6 +101,11 @@
             :scroll-to-first-error="{ behavior: 'smooth', block: 'center' }"
             @finish="handleSubmit"
           >
+            <p v-if="draftRestored" class="sa-draft" role="status">
+              {{ t('home.draftRestored') }}
+              <button type="button" class="sa-link-btn" @click="clearDraft()">{{ t('home.clearDraft') }}</button>
+            </p>
+
             <!-- step 1 -->
             <div class="sa-step">
               <div class="sa-step-head">
@@ -140,6 +145,16 @@
                 <button type="button" class="sa-city-add" @click="addCity">
                   + {{ t('home.addCity') }}
                 </button>
+                <div class="sa-hot" :aria-label="t('home.hotCitiesLabel')">
+                  <span class="sa-hot-label">{{ t('home.hotCitiesLabel') }}</span>
+                  <button
+                    v-for="city in hotCities"
+                    :key="city"
+                    type="button"
+                    class="sa-hot-chip"
+                    @click="pickHotCity(city)"
+                  >{{ city }}</button>
+                </div>
               </div>
 
               <div class="sa-grid sa-grid-date">
@@ -229,6 +244,33 @@
                     :placeholder="t('home.budgetLimitPlaceholder')"
                     addon-before="¥"
                   />
+                </a-form-item>
+              </div>
+
+              <div class="sa-grid sa-grid2">
+                <a-form-item name="pace">
+                  <template #label>
+                    <span class="sa-field-label">{{ t('home.paceLabel') }}</span>
+                  </template>
+                  <a-select v-model:value="formData.pace" size="large">
+                    <a-select-option v-for="opt in paceOptions" :key="opt.value" :value="opt.value">{{ t(opt.labelKey) }}</a-select-option>
+                  </a-select>
+                </a-form-item>
+                <a-form-item>
+                  <template #label>
+                    <span class="sa-field-label">{{ t('home.companionsLabel') }}</span>
+                  </template>
+                  <div class="sa-interest-group">
+                    <button
+                      v-for="opt in companionOptions"
+                      :key="opt.value"
+                      type="button"
+                      class="sa-pill"
+                      :class="{ on: formData.companions.includes(opt.value) }"
+                      :aria-pressed="formData.companions.includes(opt.value)"
+                      @click="toggleCompanion(opt.value)"
+                    >{{ t(opt.labelKey) }}</button>
+                  </div>
                 </a-form-item>
               </div>
 
@@ -338,6 +380,13 @@
             <div v-else class="sa-stepper-foot">
               <h3>{{ loadingProgress >= 100 ? t('home.loading.done') : loadingStatus }}</h3>
               <p class="sa-foot-sub">{{ loadingProgress < 100 ? t('home.loading.workingTogether') : t('home.loading.donePrepare') }}</p>
+              <button
+                v-if="planCode && loadingProgress < 100"
+                type="button"
+                class="sa-btn sa-btn-ghost sa-cancel-btn"
+                :disabled="cancelling"
+                @click="cancelGeneration"
+              >{{ cancelling ? t('home.loading.cancelling') : t('home.loading.cancel') }}</button>
             </div>
 
             <!-- 实时活动日志：把后端每一步的真实进度事件累积展示 -->
@@ -387,27 +436,47 @@
           </div>
           <a-empty v-else-if="historyPlans.length === 0" :description="t('home.history.empty')" />
           <div v-else class="sa-history-list">
-            <button
-              v-for="item in historyPlans"
-              :key="item.plan_id"
-              type="button"
-              class="sa-history-item"
-              @click="openHistoryPlan(item.plan_id)"
-            >
-              <div class="sa-history-item-main">
-                <div class="sa-history-route">
-                  <span class="sa-history-city">{{ item.city }}</span>
-                  <span class="sa-history-date">{{ item.start_date }} {{ t('common.to') }} {{ item.end_date }}</span>
+            <div v-for="item in historyPlans" :key="item.plan_id" class="sa-history-item">
+              <template v-if="renamingId === item.plan_id">
+                <div class="sa-history-rename">
+                  <a-input
+                    v-model:value="renameValue"
+                    :maxlength="60"
+                    :placeholder="t('home.history.renamePlaceholder')"
+                    @press-enter="confirmRename(item)"
+                    @keydown.esc="cancelRename"
+                  />
+                  <a-button type="primary" @click="confirmRename(item)">{{ t('home.history.save') }}</a-button>
+                  <a-button @click="cancelRename">{{ t('home.history.cancel') }}</a-button>
                 </div>
-                <p class="sa-history-meta">
-                  <span>Plan ID: {{ item.plan_id }}</span>
-                  <span>{{ item.travel_days }}{{ t('home.travelDaysUnit') }}</span>
-                  <span>{{ t('home.history.updatedAt') }} {{ formatHistoryTime(item.updated_at) }}</span>
-                </p>
-                <p v-if="item.overall_suggestions" class="sa-history-summary">{{ item.overall_suggestions }}</p>
-              </div>
-              <span class="sa-history-open">{{ t('home.history.open') }}</span>
-            </button>
+              </template>
+              <template v-else>
+                <button type="button" class="sa-history-item-main" @click="openHistoryPlan(item.plan_id)">
+                  <span class="sa-history-route">
+                    <span class="sa-history-city">{{ item.title || item.city }}</span>
+                    <span class="sa-history-date">{{ item.start_date }} {{ t('common.to') }} {{ item.end_date }}</span>
+                  </span>
+                  <span class="sa-history-meta">
+                    <span v-if="item.title">{{ item.city }}</span>
+                    <span>{{ item.travel_days }}{{ t('home.travelDaysUnit') }}</span>
+                    <span>{{ t('home.history.updatedAt') }} {{ formatHistoryTime(item.updated_at) }}</span>
+                  </span>
+                  <span v-if="item.overall_suggestions" class="sa-history-summary">{{ item.overall_suggestions }}</span>
+                </button>
+                <div class="sa-history-actions">
+                  <button type="button" class="sa-link-btn" @click="openHistoryPlan(item.plan_id)">{{ t('home.history.open') }}</button>
+                  <button type="button" class="sa-link-btn sa-link-muted" @click="startRename(item)">{{ t('home.history.rename') }}</button>
+                  <a-popconfirm
+                    :title="t('home.history.deleteConfirm')"
+                    :ok-text="t('home.history.delete')"
+                    :cancel-text="t('home.history.cancel')"
+                    @confirm="removeHistoryPlan(item)"
+                  >
+                    <button type="button" class="sa-link-btn sa-link-muted">{{ t('home.history.delete') }}</button>
+                  </a-popconfirm>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
       </div>
@@ -431,10 +500,17 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
-import { generateTripPlan, getTripHistory } from '@/services/api'
+import {
+  cancelTripPlan,
+  deleteTripPlan,
+  generateTripPlan,
+  getTripHistory,
+  renameTripPlan,
+  resumeTripPlan,
+} from '@/services/api'
 import { getCurrentLocale } from '@/i18n'
 import NavBar from '@/components/NavBar.vue'
-import type { TripFormData, TripTaskEvent, TripHistoryItem, CityStay } from '@/types'
+import type { TripFormData, TripTaskEvent, TripHistoryItem, TripPlanResponse, CityStay } from '@/types'
 import dayjs, { type Dayjs } from 'dayjs'
 
 type LandingFormData = {
@@ -446,10 +522,12 @@ type LandingFormData = {
   free_text_input: string
   travelers: number
   budget_limit: number | null
+  pace: string
+  companions: string[]
 }
 
 const router = useRouter()
-const { t } = useI18n()
+const { t, tm, rt } = useI18n()
 
 const loading = ref(false)
 const loadingProgress = ref(0)
@@ -556,7 +634,100 @@ const formData = reactive<LandingFormData>({
   free_text_input: '',
   travelers: 2,
   budget_limit: null,
+  pace: '适中',
+  companions: [],
 })
+
+// 节奏 / 同行人：发给后端的值固定为中文（规划提示词用中文），界面文案走 i18n
+const paceOptions = [
+  { value: '紧凑', labelKey: 'home.pace.compact' },
+  { value: '适中', labelKey: 'home.pace.moderate' },
+  { value: '悠闲', labelKey: 'home.pace.relaxed' },
+]
+const companionOptions = [
+  { value: '独自出行', labelKey: 'home.companions.solo' },
+  { value: '情侣', labelKey: 'home.companions.couple' },
+  { value: '带娃', labelKey: 'home.companions.kids' },
+  { value: '带老人', labelKey: 'home.companions.elders' },
+  { value: '朋友结伴', labelKey: 'home.companions.friends' },
+]
+const toggleCompanion = (value: string) => {
+  const i = formData.companions.indexOf(value)
+  if (i === -1) formData.companions.push(value)
+  else formData.companions.splice(i, 1)
+}
+
+// 热门目的地：点一下填进第一个空的城市格
+const hotCities = computed<string[]>(() => {
+  const list = tm('home.hotCities') as unknown[]
+  return Array.isArray(list) ? list.map(item => rt(item as any)) : []
+})
+const pickHotCity = (city: string) => {
+  const empty = formData.cities.find(cs => !cs.city.trim())
+  if (empty) empty.city = city
+  else if (formData.cities.length < 5) formData.cities.push({ city, days: 2 })
+  else formData.cities[formData.cities.length - 1].city = city
+  nextTick(() => antFormRef.value?.validateFields?.([['cities', 0, 'city']]).catch(() => {}))
+}
+
+// ── 表单草稿：自动保存在本地，生成失败或误刷新后不用重填 ──
+const DRAFT_KEY = 'tripstar.formDraft'
+const draftRestored = ref(false)
+let draftReady = false
+const defaultForm = () => ({
+  cities: [{ city: '', days: 2 }],
+  start_date: null as Dayjs | null,
+  transportation: '公共交通',
+  accommodation: '经济型酒店',
+  preferences: [] as string[],
+  free_text_input: '',
+  travelers: 2,
+  budget_limit: null as number | null,
+  pace: '适中',
+  companions: [] as string[],
+})
+const saveDraft = () => {
+  if (!draftReady) return
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      ...formData,
+      start_date: formData.start_date ? formData.start_date.format('YYYY-MM-DD') : null,
+    }))
+  } catch { /* ignore */ }
+}
+const restoreDraft = () => {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY)
+    if (!raw) return
+    const d = JSON.parse(raw)
+    const cities = Array.isArray(d.cities) && d.cities.length > 0
+      ? d.cities.slice(0, 5).map((c: any) => ({ city: String(c?.city || ''), days: Math.min(15, Math.max(1, Number(c?.days) || 2)) }))
+      : defaultForm().cities
+    const date = d.start_date ? dayjs(d.start_date) : null
+    Object.assign(formData, {
+      cities,
+      start_date: date && date.isValid() && !isPastDate(date) ? date : null,
+      transportation: d.transportation || '公共交通',
+      accommodation: d.accommodation || '经济型酒店',
+      preferences: Array.isArray(d.preferences) ? d.preferences : [],
+      free_text_input: String(d.free_text_input || ''),
+      travelers: Number(d.travelers) || 2,
+      budget_limit: d.budget_limit ? Number(d.budget_limit) : null,
+      pace: d.pace || '适中',
+      companions: Array.isArray(d.companions) ? d.companions : [],
+    })
+    draftRestored.value = cities.some((c: { city: string }) => c.city.trim()) || Boolean(formData.free_text_input.trim())
+  } catch { /* ignore */ }
+}
+function clearDraft(resetForm = true) {
+  try { localStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ }
+  draftRestored.value = false
+  if (resetForm) {
+    Object.assign(formData, defaultForm())
+    nextTick(() => antFormRef.value?.clearValidate?.())
+  }
+}
+watch(formData, saveDraft, { deep: true })
 
 const isPastDate = (current: Dayjs) => Boolean(current) && current.isBefore(dayjs(), 'day')
 
@@ -618,8 +789,126 @@ const loadHistoryPlans = async () => {
 }
 
 onMounted(() => {
+  restoreDraft()
+  draftReady = true
+  const pendingTaskId = readPendingTask()
+  if (pendingTaskId) void resumePendingGeneration(pendingTaskId)
   void loadHistoryPlans()
 })
+
+// ── 未完成任务：刷新页面或误关标签后，回来可以接上进度 ──
+const PENDING_TASK_KEY = 'tripstar.pendingTask'
+const PENDING_MAX_AGE_MS = 3 * 60 * 60 * 1000
+const savePendingTask = (taskId: string) => {
+  try { localStorage.setItem(PENDING_TASK_KEY, JSON.stringify({ task_id: taskId, at: Date.now() })) } catch { /* ignore */ }
+}
+const clearPendingTask = () => {
+  try { localStorage.removeItem(PENDING_TASK_KEY) } catch { /* ignore */ }
+}
+const readPendingTask = (): string => {
+  try {
+    const raw = localStorage.getItem(PENDING_TASK_KEY)
+    if (!raw) return ''
+    const parsed = JSON.parse(raw)
+    if (!parsed?.task_id || Date.now() - Number(parsed.at || 0) > PENDING_MAX_AGE_MS) {
+      clearPendingTask()
+      return ''
+    }
+    return String(parsed.task_id)
+  } catch {
+    return ''
+  }
+}
+
+const cancelling = ref(false)
+
+const beginLoadingPanel = () => {
+  if (panelRef.value) {
+    panelHeight.value = panelRef.value.offsetHeight
+  }
+  loadError.value = ''
+  cancelling.value = false
+  loading.value = true
+  loadingProgress.value = 5
+  loadingStatus.value = t('home.loading.initializing')
+  planCode.value = ''
+  activityLog.value = []
+  elapsed.value = 0
+  smoothPercent.value = 5
+  logSeq = 0
+  startProgressTimers()
+}
+
+const generationHandlers = {
+  onTaskCreated: (task: { task_id: string; plan_id: string }) => {
+    planCode.value = task.plan_id || task.task_id
+    savePendingTask(task.task_id)
+    loadingProgress.value = 5
+    loadingStatus.value = t('home.loading.initializing')
+  },
+  onTaskEvent: (event: TripTaskEvent) => {
+    if (event.plan_id) planCode.value = event.plan_id
+    if (Number.isFinite(event.progress)) {
+      loadingProgress.value = Math.max(0, Math.min(100, event.progress))
+    }
+    loadingStatus.value = event.message || getStageStatusText(event.stage)
+    pushLog(loadingStatus.value)
+  },
+}
+
+// 新建与"接上未完成任务"共用：处理进度、成功跳转、失败与取消
+const runGeneration = async (start: () => Promise<TripPlanResponse>) => {
+  let succeeded = false
+  try {
+    sessionStorage.removeItem('tripPlan')
+    sessionStorage.removeItem('graphData')
+    sessionStorage.removeItem('planId')
+
+    const response = await start()
+
+    if (response.success && response.data) {
+      loadingProgress.value = 100
+      loadingStatus.value = t('home.loading.done')
+      succeeded = true
+      clearPendingTask()
+      clearDraft(false)
+      pushLog(t('home.loading.finished'))
+      const last = activityLog.value[activityLog.value.length - 1]
+      if (last) last.done = true
+      const planId = response.plan_id || planCode.value
+      sessionStorage.setItem('tripPlan', JSON.stringify(response.data))
+      if (response.graph_data) sessionStorage.setItem('graphData', JSON.stringify(response.graph_data))
+      if (planId) sessionStorage.setItem('planId', planId)
+      message.success(t('home.messages.generateSuccess'))
+      setTimeout(() => {
+        if (planId) {
+          router.push({ path: '/result', query: { plan_id: planId } })
+        } else {
+          router.push('/result')
+        }
+      }, 500)
+    } else {
+      clearPendingTask()
+      failSubmit(response.message || t('home.messages.generateFailed'))
+    }
+  } catch (error: any) {
+    clearPendingTask()
+    if (cancelling.value) {
+      message.info(t('home.loading.canceled'))
+      resetLoadingPanel()
+      nextTick(scrollToForm)
+    } else {
+      failSubmit(error?.message || t('home.messages.generateRetry'))
+    }
+  } finally {
+    stopProgressTimers()
+    cancelling.value = false
+    // 只有成功时才收起进度面板；失败时保留错误原因，由用户选择重试或返回修改
+    if (succeeded) {
+      setTimeout(resetLoadingPanel, 1000)
+    }
+  }
+}
 
 const handleSubmit = async () => {
   // 校验：至少一个城市名非空
@@ -641,92 +930,47 @@ const handleSubmit = async () => {
     return
   }
 
-  if (panelRef.value) {
-    panelHeight.value = panelRef.value.offsetHeight
+  const citiesPayload: CityStay[] = validCities.map(cs => ({ city: cs.city.trim(), days: cs.days || 1 }))
+  const endDate = computedEndDate.value!
+  const requestData: TripFormData = {
+    city: citiesPayload[0].city,
+    cities: citiesPayload,
+    start_date: formData.start_date.format('YYYY-MM-DD'),
+    end_date: endDate.format('YYYY-MM-DD'),
+    travel_days: totalDays.value,
+    transportation: formData.transportation,
+    accommodation: formData.accommodation,
+    preferences: formData.preferences,
+    free_text_input: formData.free_text_input,
+    travelers: formData.travelers || 1,
+    budget_limit: formData.budget_limit || null,
+    pace: formData.pace,
+    companions: formData.companions,
+    language: getCurrentLocale(),
   }
 
-  loadError.value = ''
-  loading.value = true
-  loadingProgress.value = 5
-  loadingStatus.value = t('home.loading.initializing')
-  planCode.value = ''
-  activityLog.value = []
-  elapsed.value = 0
-  smoothPercent.value = 5
-  logSeq = 0
+  beginLoadingPanel()
   pushLog(t('home.loading.initializing'))
-  startProgressTimers()
+  await runGeneration(() => generateTripPlan(requestData, generationHandlers))
+}
 
-  let succeeded = false
+const resumePendingGeneration = async (taskId: string) => {
+  beginLoadingPanel()
+  planCode.value = taskId
+  pushLog(t('home.loading.resumed'))
+  await nextTick()
+  scrollToForm()
+  await runGeneration(() => resumeTripPlan(taskId, generationHandlers))
+}
+
+const cancelGeneration = async () => {
+  if (!planCode.value || cancelling.value) return
+  cancelling.value = true
   try {
-    sessionStorage.removeItem('tripPlan')
-    sessionStorage.removeItem('graphData')
-    sessionStorage.removeItem('planId')
-
-    const citiesPayload: CityStay[] = validCities.map(cs => ({ city: cs.city.trim(), days: cs.days || 1 }))
-    const endDate = computedEndDate.value!
-
-    const requestData: TripFormData = {
-      city: citiesPayload[0].city,
-      cities: citiesPayload,
-      start_date: formData.start_date.format('YYYY-MM-DD'),
-      end_date: endDate.format('YYYY-MM-DD'),
-      travel_days: totalDays.value,
-      transportation: formData.transportation,
-      accommodation: formData.accommodation,
-      preferences: formData.preferences,
-      free_text_input: formData.free_text_input,
-      travelers: formData.travelers || 1,
-      budget_limit: formData.budget_limit || null,
-      language: getCurrentLocale(),
-    }
-
-    const response = await generateTripPlan(requestData, {
-      onTaskCreated: (task) => {
-        planCode.value = task.plan_id || task.task_id
-        loadingProgress.value = 5
-        loadingStatus.value = t('home.loading.initializing')
-      },
-      onTaskEvent: (event) => {
-        if (event.plan_id) planCode.value = event.plan_id
-        if (Number.isFinite(event.progress)) {
-          loadingProgress.value = Math.max(0, Math.min(100, event.progress))
-        }
-        loadingStatus.value = event.message || getStageStatusText(event.stage)
-        pushLog(loadingStatus.value)
-      }
-    })
-
-    if (response.success && response.data) {
-      loadingProgress.value = 100
-      loadingStatus.value = t('home.loading.done')
-      succeeded = true
-      pushLog(t('home.loading.finished'))
-      const last = activityLog.value[activityLog.value.length - 1]
-      if (last) last.done = true
-      const planId = response.plan_id || planCode.value
-      sessionStorage.setItem('tripPlan', JSON.stringify(response.data))
-      if (response.graph_data) sessionStorage.setItem('graphData', JSON.stringify(response.graph_data))
-      if (planId) sessionStorage.setItem('planId', planId)
-      message.success(t('home.messages.generateSuccess'))
-      setTimeout(() => {
-        if (planId) {
-          router.push({ path: '/result', query: { plan_id: planId } })
-        } else {
-          router.push('/result')
-        }
-      }, 500)
-    } else {
-      failSubmit(response.message || t('home.messages.generateFailed'))
-    }
+    await cancelTripPlan(planCode.value)
   } catch (error: any) {
-    failSubmit(error?.message || t('home.messages.generateRetry'))
-  } finally {
-    stopProgressTimers()
-    // 只有成功时才收起进度面板；失败时保留错误原因，由用户选择重试或返回修改
-    if (succeeded) {
-      setTimeout(resetLoadingPanel, 1000)
-    }
+    cancelling.value = false
+    message.error(error?.message || t('home.loading.cancelFailed'))
   }
 }
 
@@ -762,6 +1006,35 @@ const retrySubmit = () => {
 const backToForm = () => {
   resetLoadingPanel()
   nextTick(scrollToForm)
+}
+
+// ── 历史记录：重命名 / 删除 ──
+const renamingId = ref('')
+const renameValue = ref('')
+const startRename = (item: TripHistoryItem) => {
+  renamingId.value = item.plan_id
+  renameValue.value = item.title || ''
+}
+const cancelRename = () => { renamingId.value = '' }
+const confirmRename = async (item: TripHistoryItem) => {
+  const title = renameValue.value.trim().slice(0, 60)
+  try {
+    await renameTripPlan(item.plan_id, title)
+    item.title = title
+    renamingId.value = ''
+    message.success(t('home.history.renamed'))
+  } catch (error: any) {
+    message.error(error?.message || t('home.history.renameFailed'))
+  }
+}
+const removeHistoryPlan = async (item: TripHistoryItem) => {
+  try {
+    await deleteTripPlan(item.plan_id)
+    historyPlans.value = historyPlans.value.filter(p => p.plan_id !== item.plan_id)
+    message.success(t('home.history.deleted'))
+  } catch (error: any) {
+    message.error(error?.message || t('home.history.deleteFailed'))
+  }
 }
 </script>
 
@@ -1028,18 +1301,56 @@ const backToForm = () => {
 .sa-history-loading { color: var(--ink-soft); padding: 12px 4px; }
 .sa-history-list { display: grid; gap: 12px; }
 .sa-history-item {
-  width: 100%; border: 1px solid var(--line); background: var(--paper-2); color: inherit; padding: 18px 20px;
-  text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 18px;
-  cursor: pointer; transition: transform .18s ease, border-color .18s ease, background .18s ease;
+  width: 100%; border: 1px solid var(--line); background: var(--paper-2); color: inherit; padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  transition: border-color .18s ease, background .18s ease;
 }
-.sa-history-item:hover { transform: translateY(-1px); border-color: var(--rust); background: var(--card); }
-.sa-history-item-main { min-width: 0; flex: 1; }
-.sa-history-route { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.sa-history-item:hover { border-color: var(--rust); background: var(--card); }
+.sa-history-item-main {
+  min-width: 0; flex: 1; display: block; padding: 0; border: none; background: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.sa-history-item-main > span { display: flex; }
+.sa-history-item-main:focus-visible { outline: 2px solid var(--rust); outline-offset: 4px; }
+.sa-history-route { flex-wrap: wrap; align-items: baseline; gap: 10px; }
 .sa-history-city { font-family: var(--serif); color: var(--ink); font-size: 1.3rem; }
 .sa-history-date { color: var(--ink-soft); font-size: 14px; }
-.sa-history-meta { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 12px; font-family: var(--mono); color: var(--ink-faint); font-size: 12px; }
-.sa-history-summary { margin: 10px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
-.sa-history-open { flex: none; color: var(--rust); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.sa-history-meta { margin: 6px 0 0; flex-wrap: wrap; gap: 12px; color: var(--ink-faint); font-size: 12px; }
+/* 建议只显示两行，避免一条历史占满半屏 */
+.sa-history-item-main > .sa-history-summary {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.6;
+}
+.sa-history-actions { flex: none; display: flex; align-items: center; gap: 14px; }
+.sa-history-rename { flex: 1; display: flex; gap: 8px; align-items: center; }
+.sa-link-btn {
+  padding: 0; border: none; background: none; font: inherit; font-size: 14px; font-weight: 600;
+  color: var(--rust); cursor: pointer; white-space: nowrap;
+}
+.sa-link-btn:hover { color: var(--rust-deep); text-decoration: underline; text-underline-offset: 3px; }
+.sa-link-btn:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+.sa-link-muted { color: var(--ink-soft); font-weight: 500; }
+@media (max-width: 640px) {
+  .sa-history-item { flex-direction: column; align-items: stretch; gap: 10px; }
+  .sa-history-actions { justify-content: flex-end; }
+}
+
+.sa-draft {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  margin: 18px 0 0; padding: 10px 14px; font-size: 13px; color: var(--ink-soft);
+  background: color-mix(in srgb, var(--teal) 6%, var(--card)); border: 1px solid var(--line-2);
+}
+.sa-hot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.sa-hot-label { font-size: 12px; color: var(--ink-faint); margin-right: 4px; }
+.sa-hot-chip {
+  padding: 3px 10px; border: 1px solid var(--line); background: transparent; border-radius: 999px;
+  font: inherit; font-size: 12.5px; color: var(--ink-soft); cursor: pointer;
+}
+.sa-hot-chip:hover { border-color: var(--rust); color: var(--rust); }
+.sa-hot-chip:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+.sa-pill { font-family: inherit; }
+.sa-cancel-btn { margin-top: 14px; }
+.sa-cancel-btn:disabled { opacity: .6; cursor: default; }
 
 /* ── Footer ── */
 .sa-footer { background: var(--night); color: var(--star-ink); }

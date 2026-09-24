@@ -26,6 +26,8 @@ class TripRequest(BaseModel):
     free_text_input: Optional[str] = Field(default="", description="额外要求", example="希望多安排一些博物馆")
     travelers: int = Field(default=1, ge=1, le=20, description="出行人数", example=2)
     budget_limit: Optional[int] = Field(default=None, ge=0, description="全程总预算上限(人民币,全部出行人合计)", example=5000)
+    pace: Optional[str] = Field(default="适中", description="行程节奏: 紧凑/适中/悠闲", example="适中")
+    companions: List[str] = Field(default=[], description="同行人情况标签", example=["带老人"])
     language: Optional[str] = Field(default="zh", description="输出语言(zh/en/ja)", example="en")
     user_id: Optional[str] = Field(default="", description="用户唯一标识(前端生成,用于记忆库)")
 

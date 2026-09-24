@@ -2,7 +2,7 @@
   <div class="result-container">
     <div class="lower-shade"></div>
 
-    <NavBar @brand-click="goBack" @cta-click="goBack" />
+    <NavBar :cta-label="t('result.newTrip')" @brand-click="goBack" @cta-click="goBack" />
 
     <main class="result-main">
       <div v-if="tripPlan" class="content-wrapper">

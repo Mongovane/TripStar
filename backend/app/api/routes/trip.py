@@ -20,7 +20,12 @@ router = APIRouter(prefix="/trip", tags=["旅行规划"])
 
 # 内存任务存储（单实例部署足够）
 _tasks: Dict[str, Dict[str, Any]] = {}
+# 正在执行的规划协程，用于"取消生成"
+_running: Dict[str, "asyncio.Task[Any]"] = {}
 _FINAL_TASK_STATUS = {"completed", "failed"}
+# 早期版本生成的行程没有记录创建者；默认不在任何人的历史里显示（避免互相看到）。
+# 单人自用部署如需找回，可设置 HISTORY_INCLUDE_LEGACY=true。
+_INCLUDE_LEGACY_HISTORY = os.getenv("HISTORY_INCLUDE_LEGACY", "false").lower() == "true"
 _TASKS_DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "trip_tasks"
 
 
@@ -36,6 +41,8 @@ def _create_task_state(task_id: str) -> Dict[str, Any]:
         "result": None,
         "error": None,
         "request_payload": None,
+        "title": "",
+        "hidden": False,
         "subscribers": [],  # list[asyncio.Queue]
     }
 
@@ -66,6 +73,8 @@ def _normalize_loaded_task(task_id: str, payload: Dict[str, Any]) -> Dict[str, A
             "result": payload.get("result"),
             "error": payload.get("error"),
             "request_payload": payload.get("request_payload"),
+            "title": payload.get("title") or "",
+            "hidden": bool(payload.get("hidden")),
         }
     )
     task["subscribers"] = []
@@ -95,6 +104,8 @@ def _persist_task_state(task_id: str, task: Dict[str, Any]) -> None:
             "result": _serialize_result(task.get("result")),
             "error": task.get("error"),
             "request_payload": task.get("request_payload"),
+            "title": task.get("title") or "",
+            "hidden": bool(task.get("hidden")),
         }
         target = _task_file_path(task_id)
         tmp = target.with_suffix(".json.tmp")
@@ -151,9 +162,21 @@ def _get_task(task_id: str) -> Dict[str, Any] | None:
     return _tasks.get(task_id) or _load_task_from_disk(task_id)
 
 
+def _task_owner(task_or_payload: Dict[str, Any]) -> str:
+    """任务的创建者（前端生成的匿名 user_id）；旧任务没有记录时为空串。"""
+    return str((task_or_payload.get("request_payload") or {}).get("user_id") or "").strip()
+
+
+def _require_owner(task: Dict[str, Any], user_id: str | None) -> None:
+    """有创建者记录的行程，只允许创建者修改；旧任务（无记录）保持兼容。"""
+    owner = _task_owner(task)
+    if owner and owner != (user_id or "").strip():
+        raise HTTPException(status_code=403, detail="只能修改自己创建的行程")
+
+
 def _build_history_item(task_id: str, payload: Dict[str, Any], updated_at: str) -> Dict[str, Any] | None:
     """从持久化任务中提取首页历史列表所需的摘要。"""
-    if payload.get("status") != "completed":
+    if payload.get("status") != "completed" or payload.get("hidden"):
         return None
 
     result = payload.get("result") or {}
@@ -184,10 +207,11 @@ def _build_history_item(task_id: str, payload: Dict[str, Any], updated_at: str) 
         "travel_days": travel_days,
         "updated_at": updated_at,
         "overall_suggestions": overall_suggestions,
+        "title": payload.get("title") or "",
     }
 
 
-def _load_history_items(limit: int = 10) -> list[Dict[str, Any]]:
+def _load_history_items(limit: int = 10, user_id: str = "") -> list[Dict[str, Any]]:
     """按最近更新时间返回已完成的历史计划摘要。"""
     if not _TASKS_DATA_DIR.exists():
         return []
@@ -198,6 +222,10 @@ def _load_history_items(limit: int = 10) -> list[Dict[str, Any]]:
             with open(path, "r", encoding="utf-8") as f:
                 payload = json.load(f)
             if not isinstance(payload, dict):
+                continue
+            # 历史记录按用户隔离：只返回当前访客自己创建的行程
+            owner = _task_owner(payload)
+            if owner != user_id and not (not owner and _INCLUDE_LEGACY_HISTORY):
                 continue
             updated_at = datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds")
             item = _build_history_item(str(payload.get("task_id") or path.stem), payload, updated_at)
@@ -309,7 +337,7 @@ async def plan_trip(request: TripRequest):
     )
 
     # 启动后台任务
-    asyncio.create_task(_run_trip_planning(task_id, request))
+    _running[task_id] = asyncio.create_task(_run_trip_planning(task_id, request))
 
     return {
         "task_id": task_id,
@@ -407,6 +435,16 @@ async def _run_trip_planning(task_id: str, request: TripRequest):
             result=trip_result,
         )
 
+    except asyncio.CancelledError:
+        print(f"🛑 任务 {task_id} 已被用户取消")
+        await _update_task_state(
+            task_id,
+            status="failed",
+            stage="failed",
+            progress=100,
+            message="已取消生成",
+            error="已取消生成",
+        )
     except Exception as e:
         print(f"❌ 任务 {task_id} 失败: {e}")
         traceback.print_exc()
@@ -430,6 +468,8 @@ async def _run_trip_planning(task_id: str, request: TripRequest):
             message=error_msg,
             error=error_msg,
         )
+    finally:
+        _running.pop(task_id, None)
 
 
 @router.websocket("/ws/{task_id}")
@@ -488,6 +528,7 @@ class TripPlanUpdatePayload(BaseModel):
     """结果页保存修改时提交的完整行程。"""
 
     data: Dict[str, Any] = Field(..., description="修改后的 TripPlan")
+    user_id: str = Field(default="", description="当前访客的匿名 user_id，用于校验是否为创建者")
 
 
 @router.put(
@@ -501,6 +542,7 @@ async def update_trip_plan(plan_id: str, payload: TripPlanUpdatePayload):
         raise HTTPException(status_code=404, detail="行程不存在")
     if task.get("status") != "completed":
         raise HTTPException(status_code=409, detail="行程尚未生成完成，暂时不能保存修改")
+    _require_owner(task, payload.user_id)
 
     try:
         plan = TripPlan.model_validate(payload.data)
@@ -528,16 +570,64 @@ async def update_trip_plan(plan_id: str, payload: TripPlanUpdatePayload):
     }
 
 
+class TripPlanMetaPayload(BaseModel):
+    user_id: str = Field(default="")
+    title: str = Field(default="", max_length=60, description="历史记录里显示的名称，留空则显示城市名")
+
+
+@router.patch("/plan/{plan_id}", summary="重命名历史行程")
+async def rename_trip_plan(plan_id: str, payload: TripPlanMetaPayload):
+    task = _get_task(plan_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="行程不存在")
+    _require_owner(task, payload.user_id)
+    task["title"] = payload.title.strip()
+    _persist_task_state(plan_id, task)
+    return {"success": True, "plan_id": plan_id, "title": task["title"]}
+
+
+@router.delete("/plan/{plan_id}", summary="从历史记录中移除行程")
+async def delete_trip_plan(plan_id: str, user_id: str = ""):
+    """软删除：只在历史列表中隐藏，数据文件保留，便于误删后由管理员恢复。"""
+    task = _get_task(plan_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="行程不存在")
+    _require_owner(task, user_id)
+    task["hidden"] = True
+    _persist_task_state(plan_id, task)
+    return {"success": True, "plan_id": plan_id}
+
+
+@router.post("/cancel/{task_id}", summary="取消正在生成的行程")
+async def cancel_trip_plan(task_id: str, user_id: str = ""):
+    task = _get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    _require_owner(task, user_id)
+    if task.get("status") in _FINAL_TASK_STATUS:
+        return {"success": True, "status": task.get("status")}
+    running = _running.get(task_id)
+    if running and not running.done():
+        running.cancel()
+    else:
+        await _update_task_state(task_id, status="failed", stage="failed", progress=100,
+                                 message="已取消生成", error="已取消生成")
+    return {"success": True, "status": "cancelling"}
+
+
 @router.get(
     "/history",
     summary="最近历史计划",
     description="返回最近成功生成的旅行计划摘要，供首页快速找回历史计划",
 )
-async def get_trip_history(limit: int = 10):
-    """查询最近的历史计划摘要。"""
+async def get_trip_history(limit: int = 10, user_id: str = ""):
+    """查询当前访客最近的历史计划摘要（按 user_id 隔离）。"""
     safe_limit = max(1, min(int(limit or 10), 50))
+    uid = (user_id or "").strip()
+    if not uid:
+        return {"items": []}
     return {
-        "items": _load_history_items(safe_limit),
+        "items": _load_history_items(safe_limit, uid),
     }
 
 

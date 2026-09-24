@@ -47,7 +47,8 @@
       "openaiModel": "OpenAI 兼容格式 Model",
       "openaiApiKey": "OpenAI 兼容格式 API Key",
       "xhsCookie": "小红书 Cookie",
-      "amapSecurityCode": "高德地图 安全密钥 (JSCode)"
+      "amapSecurityCode": "高德地图 安全密钥 (JSCode)",
+      "adminToken": "管理口令"
     },
     "placeholders": {
       "apiBaseUrl": "例如：http://localhost:8000",
@@ -60,8 +61,10 @@
     "messages": {
       "loadFailed": "读取设置失败",
       "saveFailed": "保存设置失败",
-      "saved": "设置已保存并应用"
-    }
+      "saved": "设置已保存并应用",
+      "adminTokenInvalid": "管理口令不正确，设置未保存"
+    },
+    "adminTokenHint": "服务器设置了管理口令，修改配置需要填写。口令只保存在当前浏览器。"
   },
   "home": {
     "heroBadge": "AI 智能行程规划引擎",
@@ -125,7 +128,17 @@
       "open": "查看详情",
       "empty": "暂无历史计划",
       "updatedAt": "更新于",
-      "loadFailed": "读取历史计划失败"
+      "loadFailed": "读取历史计划失败",
+      "rename": "重命名",
+      "renamePlaceholder": "给这个行程起个名字，留空则显示城市",
+      "delete": "删除",
+      "deleteConfirm": "从历史记录中删除这个行程？",
+      "deleted": "已从历史记录中删除",
+      "renamed": "已重命名",
+      "renameFailed": "重命名失败",
+      "deleteFailed": "删除失败",
+      "save": "保存",
+      "cancel": "取消"
     },
     "loading": {
       "initializing": "正在初始化...",
@@ -150,7 +163,12 @@
       "errorHint": "表单内容都还在，可以直接重试，或返回修改后再试。",
       "retry": "重新生成",
       "backToEdit": "返回修改",
-      "errorDetail": "失败原因"
+      "errorDetail": "失败原因",
+      "cancel": "取消生成",
+      "cancelling": "正在取消…",
+      "canceled": "已取消生成",
+      "cancelFailed": "取消失败，请稍后再试",
+      "resumed": "已接上上次还没完成的生成"
     },
     "messages": {
       "travelDaysTooLong": "旅行天数不能超过 30 天",
@@ -164,7 +182,34 @@
     "travelersUnit": "人",
     "budgetLimitLabel": "总预算上限（元，可不填）",
     "budgetLimitPlaceholder": "不限",
-    "pastDateNotAllowed": "出发日期不能早于今天"
+    "pastDateNotAllowed": "出发日期不能早于今天",
+    "paceLabel": "行程节奏",
+    "pace": {
+      "compact": "紧凑（每天 3-4 个景点）",
+      "moderate": "适中（每天 2-3 个）",
+      "relaxed": "悠闲（每天 1-2 个）"
+    },
+    "companionsLabel": "同行人（可多选）",
+    "companions": {
+      "solo": "独自出行",
+      "couple": "情侣",
+      "kids": "带娃",
+      "elders": "带老人",
+      "friends": "朋友结伴"
+    },
+    "hotCitiesLabel": "热门目的地",
+    "hotCities": [
+      "北京",
+      "上海",
+      "成都",
+      "西安",
+      "杭州",
+      "厦门",
+      "重庆",
+      "大理"
+    ],
+    "draftRestored": "已恢复上次没提交的内容",
+    "clearDraft": "清空重填"
   },
   "result": {
     "backHome": "返回首页",
@@ -399,7 +444,8 @@
       "noReservation": "无",
       "suggestionsTitle": "出行建议",
       "viewReservations": "查看需预约景点"
-    }
+    },
+    "newTrip": "新建行程"
   },
   "buddy": {
     "quacks": [

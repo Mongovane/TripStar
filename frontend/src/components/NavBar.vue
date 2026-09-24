@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar navbar-toggleable-md fixed-top navbar-transparent landing-navbar">
+  <nav class="navbar navbar-toggleable-md fixed-top navbar-transparent landing-navbar" :class="{ 'is-scrolled': scrolled }">
     <div class="container">
       <div class="navbar-translate">
         <button
@@ -55,7 +55,7 @@
           </li>
           <li class="nav-item">
             <button type="button" class="btn btn-danger btn-round landing-cta" @click="handleCtaClick">
-              {{ t('home.nav.cta') }}
+              {{ ctaLabel || t('home.nav.cta') }}
             </button>
           </li>
         </ul>
@@ -75,6 +75,13 @@
         <section class="runtime-settings-panel">
 
           <a-form layout="vertical" class="runtime-settings-form">
+            <a-form-item v-if="adminRequired" class="runtime-settings-full admin-token-item">
+              <template #label>
+                <span class="field-label">{{ t('settings.labels.adminToken') }}</span>
+              </template>
+              <a-input-password v-model:value="adminToken" autocomplete="current-password" />
+              <p class="admin-token-hint">{{ t('settings.adminTokenHint') }}</p>
+            </a-form-item>
             <div class="runtime-settings-grid">
               <a-form-item>
                 <template #label>
@@ -179,16 +186,25 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
 import type { RuntimeSettings } from '@/types'
-import { getRuntimeSettings, saveRuntimeSettings, getRuntimeGoogleMapsApiKey } from '@/services/api'
+import {
+  getAdminToken,
+  getRuntimeGoogleMapsApiKey,
+  getRuntimeSettings,
+  isAdminTokenRequired,
+  saveRuntimeSettings,
+  setAdminToken,
+} from '@/services/api'
 
 const { t, locale } = useI18n()
 const settingsVisible = ref(false)
 const settingsLoading = ref(false)
 const settingsSaving = ref(false)
+const adminRequired = ref(false)
+const adminToken = ref('')
 const settingsForm = reactive<RuntimeSettings>({
   api_base_url: '',
   vite_amap_web_key: '',
@@ -201,6 +217,14 @@ const settingsForm = reactive<RuntimeSettings>({
   openai_base_url: '',
   openai_model: '',
 })
+
+defineProps<{ ctaLabel?: string }>()
+
+// 滚动后给导航栏加阴影与底边，让下方滚过的内容不会透出来
+const scrolled = ref(false)
+const onScroll = () => { scrolled.value = window.scrollY > 4 }
+onMounted(() => { onScroll(); window.addEventListener('scroll', onScroll, { passive: true }) })
+onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 
 const emit = defineEmits<{
   (e: 'brand-click'): void
@@ -231,6 +255,8 @@ const applyRuntimeSettings = (settings: RuntimeSettings) => {
 const openSettingsDialog = async () => {
   settingsVisible.value = true
   settingsLoading.value = true
+  adminToken.value = getAdminToken()
+  void isAdminTokenRequired().then((required) => { adminRequired.value = required })
   try {
     const settings = await getRuntimeSettings()
     applyRuntimeSettings(settings)
@@ -243,6 +269,7 @@ const openSettingsDialog = async () => {
 
 const saveSettingsNow = async () => {
   settingsSaving.value = true
+  if (adminRequired.value) setAdminToken(adminToken.value.trim())
   try {
     const payload: RuntimeSettings = {
       api_base_url: settingsForm.api_base_url,
@@ -261,7 +288,12 @@ const saveSettingsNow = async () => {
     message.success(t('settings.messages.saved'))
     settingsVisible.value = false
   } catch (error: any) {
-    message.error(error?.message || t('settings.messages.saveFailed'))
+    const text = String(error?.message || '')
+    if (adminRequired.value && /管理口令|401/.test(text)) {
+      message.error(t('settings.messages.adminTokenInvalid'))
+    } else {
+      message.error(text || t('settings.messages.saveFailed'))
+    }
   } finally {
     settingsSaving.value = false
   }
@@ -269,6 +301,7 @@ const saveSettingsNow = async () => {
 </script>
 
 <style scoped>
+.admin-token-hint { margin: 6px 0 0; font-size: 12px; color: #6B5C4C; }
 .landing-navbar {
   position: fixed !important;
   top: 0 !important;
@@ -304,6 +337,20 @@ const saveSettingsNow = async () => {
   background-color: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
+}
+
+/* 实底背景：页面内容滚动到导航栏下方时不再透出来（原先被上面的 transparent 规则覆盖） */
+.landing-navbar.navbar-transparent,
+.landing-navbar:not(.navbar-transparent) {
+  background: #F4EEE1 !important;
+  background-color: #F4EEE1 !important;
+  backdrop-filter: saturate(1.2) blur(10px) !important;
+  -webkit-backdrop-filter: saturate(1.2) blur(10px) !important;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+.landing-navbar.is-scrolled {
+  border-bottom: 1px solid rgba(36, 29, 24, 0.14) !important;
+  box-shadow: 0 8px 20px -18px rgba(36, 29, 24, 0.6) !important;
 }
 
 .landing-navbar *,
