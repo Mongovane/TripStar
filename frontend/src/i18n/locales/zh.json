@@ -138,7 +138,11 @@
       "renameFailed": "重命名失败",
       "deleteFailed": "删除失败",
       "save": "保存",
-      "cancel": "取消"
+      "cancel": "取消",
+      "adminView": "管理员视图：显示所有访客的行程（{n} 条）。清空设置里的管理口令即可回到普通视图。",
+      "mine": "我的",
+      "otherVisitor": "其他访客",
+      "legacy": "早期行程"
     },
     "loading": {
       "initializing": "正在初始化...",

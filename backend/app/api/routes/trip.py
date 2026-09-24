@@ -9,12 +9,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from typing import Optional
+
+from fastapi import APIRouter, Header, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, ValidationError
 
 from ...agents.trip_planner_agent import get_trip_planner_agent
 from ...models.schemas import TripPlan, TripPlanResponse, TripRequest
 from ...services.knowledge_graph_service import build_knowledge_graph
+from ..admin_auth import is_admin
 
 router = APIRouter(prefix="/trip", tags=["旅行规划"])
 
@@ -167,8 +170,10 @@ def _task_owner(task_or_payload: Dict[str, Any]) -> str:
     return str((task_or_payload.get("request_payload") or {}).get("user_id") or "").strip()
 
 
-def _require_owner(task: Dict[str, Any], user_id: str | None) -> None:
-    """有创建者记录的行程，只允许创建者修改；旧任务（无记录）保持兼容。"""
+def _require_owner(task: Dict[str, Any], user_id: str | None, admin_token: str | None = None) -> None:
+    """有创建者记录的行程，只允许创建者（或持有管理口令的管理员）修改；旧任务（无记录）保持兼容。"""
+    if is_admin(admin_token):
+        return
     owner = _task_owner(task)
     if owner and owner != (user_id or "").strip():
         raise HTTPException(status_code=403, detail="只能修改自己创建的行程")
@@ -208,10 +213,11 @@ def _build_history_item(task_id: str, payload: Dict[str, Any], updated_at: str) 
         "updated_at": updated_at,
         "overall_suggestions": overall_suggestions,
         "title": payload.get("title") or "",
+        "owner": _task_owner(payload),
     }
 
 
-def _load_history_items(limit: int = 10, user_id: str = "") -> list[Dict[str, Any]]:
+def _load_history_items(limit: int = 10, user_id: str = "", admin: bool = False) -> list[Dict[str, Any]]:
     """按最近更新时间返回已完成的历史计划摘要。"""
     if not _TASKS_DATA_DIR.exists():
         return []
@@ -225,11 +231,16 @@ def _load_history_items(limit: int = 10, user_id: str = "") -> list[Dict[str, An
                 continue
             # 历史记录按用户隔离：只返回当前访客自己创建的行程
             owner = _task_owner(payload)
-            if owner != user_id and not (not owner and _INCLUDE_LEGACY_HISTORY):
+            # 管理员看全部；普通访客只看自己的（可选再加上无创建者记录的旧行程）
+            if not admin and owner != user_id and not (not owner and _INCLUDE_LEGACY_HISTORY):
                 continue
             updated_at = datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds")
             item = _build_history_item(str(payload.get("task_id") or path.stem), payload, updated_at)
             if item:
+                # 不把他人的 user_id 暴露给前端，只告诉它这条是否属于当前访客
+                item["mine"] = bool(owner) and owner == user_id
+                item["legacy"] = not owner
+                item.pop("owner", None)
                 items.append(item)
             if len(items) >= limit:
                 break
@@ -536,13 +547,13 @@ class TripPlanUpdatePayload(BaseModel):
     summary="保存行程修改",
     description="用户在结果页编辑行程后，将修改写回持久化存储，使历史记录、新标签页和分享链接都能看到最新版本",
 )
-async def update_trip_plan(plan_id: str, payload: TripPlanUpdatePayload):
+async def update_trip_plan(plan_id: str, payload: TripPlanUpdatePayload, x_admin_token: Optional[str] = Header(default=None)):
     task = _get_task(plan_id)
     if task is None:
         raise HTTPException(status_code=404, detail="行程不存在")
     if task.get("status") != "completed":
         raise HTTPException(status_code=409, detail="行程尚未生成完成，暂时不能保存修改")
-    _require_owner(task, payload.user_id)
+    _require_owner(task, payload.user_id, x_admin_token)
 
     try:
         plan = TripPlan.model_validate(payload.data)
@@ -576,34 +587,34 @@ class TripPlanMetaPayload(BaseModel):
 
 
 @router.patch("/plan/{plan_id}", summary="重命名历史行程")
-async def rename_trip_plan(plan_id: str, payload: TripPlanMetaPayload):
+async def rename_trip_plan(plan_id: str, payload: TripPlanMetaPayload, x_admin_token: Optional[str] = Header(default=None)):
     task = _get_task(plan_id)
     if task is None:
         raise HTTPException(status_code=404, detail="行程不存在")
-    _require_owner(task, payload.user_id)
+    _require_owner(task, payload.user_id, x_admin_token)
     task["title"] = payload.title.strip()
     _persist_task_state(plan_id, task)
     return {"success": True, "plan_id": plan_id, "title": task["title"]}
 
 
 @router.delete("/plan/{plan_id}", summary="从历史记录中移除行程")
-async def delete_trip_plan(plan_id: str, user_id: str = ""):
+async def delete_trip_plan(plan_id: str, user_id: str = "", x_admin_token: Optional[str] = Header(default=None)):
     """软删除：只在历史列表中隐藏，数据文件保留，便于误删后由管理员恢复。"""
     task = _get_task(plan_id)
     if task is None:
         raise HTTPException(status_code=404, detail="行程不存在")
-    _require_owner(task, user_id)
+    _require_owner(task, user_id, x_admin_token)
     task["hidden"] = True
     _persist_task_state(plan_id, task)
     return {"success": True, "plan_id": plan_id}
 
 
 @router.post("/cancel/{task_id}", summary="取消正在生成的行程")
-async def cancel_trip_plan(task_id: str, user_id: str = ""):
+async def cancel_trip_plan(task_id: str, user_id: str = "", x_admin_token: Optional[str] = Header(default=None)):
     task = _get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="任务不存在")
-    _require_owner(task, user_id)
+    _require_owner(task, user_id, x_admin_token)
     if task.get("status") in _FINAL_TASK_STATUS:
         return {"success": True, "status": task.get("status")}
     running = _running.get(task_id)
@@ -620,14 +631,16 @@ async def cancel_trip_plan(task_id: str, user_id: str = ""):
     summary="最近历史计划",
     description="返回最近成功生成的旅行计划摘要，供首页快速找回历史计划",
 )
-async def get_trip_history(limit: int = 10, user_id: str = ""):
-    """查询当前访客最近的历史计划摘要（按 user_id 隔离）。"""
+async def get_trip_history(limit: int = 10, user_id: str = "", x_admin_token: Optional[str] = Header(default=None)):
+    """查询历史计划摘要：普通访客按 user_id 隔离；持有管理口令时返回全部（管理员视图）。"""
     safe_limit = max(1, min(int(limit or 10), 50))
     uid = (user_id or "").strip()
-    if not uid:
-        return {"items": []}
+    admin = is_admin(x_admin_token)
+    if not uid and not admin:
+        return {"items": [], "admin": False}
     return {
-        "items": _load_history_items(safe_limit, uid),
+        "items": _load_history_items(safe_limit, uid, admin=admin),
+        "admin": admin,
     }
 
 

@@ -138,7 +138,11 @@
       "renameFailed": "Couldn't rename",
       "deleteFailed": "Couldn't delete",
       "save": "Save",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "adminView": "Admin view: showing trips from all visitors ({n}). Clear the admin passcode in Settings to return to the normal view.",
+      "mine": "Mine",
+      "otherVisitor": "Other visitor",
+      "legacy": "Older trip"
     },
     "loading": {
       "initializing": "Initializing...",

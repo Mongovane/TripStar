@@ -73,6 +73,7 @@ interface RuntimeSettingsApiResponse {
 
 interface TripHistoryResponse {
   items?: TripHistoryItem[]
+  admin?: boolean
 }
 
 export const getRuntimeApiBaseUrl = (): string => {
@@ -241,12 +242,21 @@ const ADMIN_TOKEN_STORAGE_KEY = 'tripstar.admin_token'
 export const getAdminToken = (): string => {
   try { return window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '' } catch { return '' }
 }
+export const ADMIN_TOKEN_CHANGED_EVENT = 'tripstar:admin-token-changed'
 export const setAdminToken = (value: string): void => {
+  const changed = value !== getAdminToken()
   try {
     if (value) window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, value)
     else window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY)
   } catch { /* ignore */ }
+  if (changed) window.dispatchEvent(new CustomEvent(ADMIN_TOKEN_CHANGED_EVENT))
 }
+/** 已保存管理口令时带上请求头：历史记录进入管理员视图，并可管理所有行程 */
+const adminHeaders = (): Record<string, string> | undefined => {
+  const token = getAdminToken()
+  return token ? { 'X-Admin-Token': token } : undefined
+}
+
 export async function isAdminTokenRequired(): Promise<boolean> {
   try {
     const response = await apiClient.get('/api/settings/auth')
@@ -369,7 +379,7 @@ export async function pollTaskStatus(taskId: string): Promise<any> {
  */
 export async function updateTripPlan(planId: string, plan: TripPlan): Promise<void> {
   try {
-    await apiClient.put(`/api/trip/plan/${encodeURIComponent(planId)}`, { data: plan, user_id: getOrCreateUserId() })
+    await apiClient.put(`/api/trip/plan/${encodeURIComponent(planId)}`, { data: plan, user_id: getOrCreateUserId() }, { headers: adminHeaders() })
   } catch (error: any) {
     console.error('保存行程修改失败:', error)
     throw new Error(error.response?.data?.detail || error.message || t('result.messages.saveFailed'))
@@ -379,7 +389,7 @@ export async function updateTripPlan(planId: string, plan: TripPlan): Promise<vo
 /** 重命名历史行程（留空则恢复显示城市名） */
 export async function renameTripPlan(planId: string, title: string): Promise<void> {
   try {
-    await apiClient.patch(`/api/trip/plan/${encodeURIComponent(planId)}`, { title, user_id: getOrCreateUserId() })
+    await apiClient.patch(`/api/trip/plan/${encodeURIComponent(planId)}`, { title, user_id: getOrCreateUserId() }, { headers: adminHeaders() })
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || error.message || t('home.history.renameFailed'))
   }
@@ -388,7 +398,7 @@ export async function renameTripPlan(planId: string, title: string): Promise<voi
 /** 从历史记录中移除行程（后端为软删除） */
 export async function deleteTripPlan(planId: string): Promise<void> {
   try {
-    await apiClient.delete(`/api/trip/plan/${encodeURIComponent(planId)}`, { params: { user_id: getOrCreateUserId() } })
+    await apiClient.delete(`/api/trip/plan/${encodeURIComponent(planId)}`, { params: { user_id: getOrCreateUserId() }, headers: adminHeaders() })
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || error.message || t('home.history.deleteFailed'))
   }
@@ -397,7 +407,7 @@ export async function deleteTripPlan(planId: string): Promise<void> {
 /** 取消正在生成的行程 */
 export async function cancelTripPlan(taskId: string): Promise<void> {
   try {
-    await apiClient.post(`/api/trip/cancel/${encodeURIComponent(taskId)}`, null, { params: { user_id: getOrCreateUserId() } })
+    await apiClient.post(`/api/trip/cancel/${encodeURIComponent(taskId)}`, null, { params: { user_id: getOrCreateUserId() }, headers: adminHeaders() })
   } catch (error: any) {
     throw new Error(error.response?.data?.detail || error.message || t('home.loading.cancelFailed'))
   }
@@ -420,12 +430,16 @@ export async function geocodePlace(
   }
 }
 
-export async function getTripHistory(limit = 8): Promise<TripHistoryItem[]> {
+export async function getTripHistory(limit = 8): Promise<{ items: TripHistoryItem[]; admin: boolean }> {
   try {
     const response = await apiClient.get<TripHistoryResponse>('/api/trip/history', {
       params: { limit, user_id: getOrCreateUserId() },
+      headers: adminHeaders(),
     })
-    return Array.isArray(response.data?.items) ? response.data.items : []
+    return {
+      items: Array.isArray(response.data?.items) ? response.data.items : [],
+      admin: Boolean(response.data?.admin),
+    }
   } catch (error: any) {
     console.error('查询历史计划失败:', error)
     throw new Error(error.response?.data?.detail || error.message || t('api.queryTaskStatusFailed'))

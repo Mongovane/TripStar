@@ -127,6 +127,8 @@ export interface TripHistoryItem {
   updated_at: string
   overall_suggestions?: string
   title?: string
+  mine?: boolean
+  legacy?: boolean
 }
 
 export type TripTaskStatus = 'processing' | 'completed' | 'failed'

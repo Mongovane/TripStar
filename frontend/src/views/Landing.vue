@@ -434,8 +434,9 @@
           <div v-if="historyLoading" class="sa-history-loading">
             {{ t('common.loading') }}
           </div>
-          <a-empty v-else-if="historyPlans.length === 0" :description="t('home.history.empty')" />
-          <div v-else class="sa-history-list">
+          <p v-if="historyAdmin" class="sa-admin-note" role="status">{{ t('home.history.adminView', { n: historyPlans.length }) }}</p>
+          <a-empty v-if="!historyLoading && historyPlans.length === 0" :description="t('home.history.empty')" />
+          <div v-if="historyPlans.length > 0" class="sa-history-list">
             <div v-for="item in historyPlans" :key="item.plan_id" class="sa-history-item">
               <template v-if="renamingId === item.plan_id">
                 <div class="sa-history-rename">
@@ -454,6 +455,9 @@
                 <button type="button" class="sa-history-item-main" @click="openHistoryPlan(item.plan_id)">
                   <span class="sa-history-route">
                     <span class="sa-history-city">{{ item.title || item.city }}</span>
+                    <span v-if="historyAdmin" class="sa-owner-tag" :class="{ mine: item.mine }">
+                      {{ item.mine ? t('home.history.mine') : item.legacy ? t('home.history.legacy') : t('home.history.otherVisitor') }}
+                    </span>
                     <span class="sa-history-date">{{ item.start_date }} {{ t('common.to') }} {{ item.end_date }}</span>
                   </span>
                   <span class="sa-history-meta">
@@ -496,7 +500,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
@@ -507,6 +511,8 @@ import {
   getTripHistory,
   renameTripPlan,
   resumeTripPlan,
+  RUNTIME_SETTINGS_UPDATED_EVENT,
+  ADMIN_TOKEN_CHANGED_EVENT,
 } from '@/services/api'
 import { getCurrentLocale } from '@/i18n'
 import NavBar from '@/components/NavBar.vue'
@@ -540,6 +546,7 @@ const antFormRef = ref<any>(null)
 const loadError = ref('')
 const historyLoading = ref(false)
 const historyPlans = ref<TripHistoryItem[]>([])
+const historyAdmin = ref(false)
 
 // 星座连线的点亮比例，跟随后端进度推进（装饰用途）
 const constellationFill = computed(() => `${Math.min(Math.max(loadingProgress.value, 0), 100)}%`)
@@ -779,7 +786,9 @@ const openHistoryPlan = (planId: string) => {
 const loadHistoryPlans = async () => {
   historyLoading.value = true
   try {
-    historyPlans.value = await getTripHistory(8)
+    const { items, admin } = await getTripHistory(20)
+    historyPlans.value = items
+    historyAdmin.value = admin
   } catch (error: any) {
     historyPlans.value = []
     message.error(error.message || t('home.history.loadFailed'))
@@ -794,6 +803,9 @@ onMounted(() => {
   const pendingTaskId = readPendingTask()
   if (pendingTaskId) void resumePendingGeneration(pendingTaskId)
   void loadHistoryPlans()
+  // 在设置里填好管理口令并保存后，立即切换到管理员视图
+  window.addEventListener(RUNTIME_SETTINGS_UPDATED_EVENT, onSettingsUpdated)
+  window.addEventListener(ADMIN_TOKEN_CHANGED_EVENT, onSettingsUpdated)
 })
 
 // ── 未完成任务：刷新页面或误关标签后，回来可以接上进度 ──
@@ -909,6 +921,12 @@ const runGeneration = async (start: () => Promise<TripPlanResponse>) => {
     }
   }
 }
+
+const onSettingsUpdated = () => { void loadHistoryPlans() }
+onBeforeUnmount(() => {
+  window.removeEventListener(RUNTIME_SETTINGS_UPDATED_EVENT, onSettingsUpdated)
+  window.removeEventListener(ADMIN_TOKEN_CHANGED_EVENT, onSettingsUpdated)
+})
 
 const handleSubmit = async () => {
   // 校验：至少一个城市名非空
@@ -1335,6 +1353,15 @@ const removeHistoryPlan = async (item: TripHistoryItem) => {
   .sa-history-actions { justify-content: flex-end; }
 }
 
+.sa-admin-note {
+  margin: 0 0 12px; padding: 8px 12px; font-size: 13px; color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 7%, var(--card)); border: 1px solid color-mix(in srgb, var(--teal) 25%, transparent);
+}
+.sa-owner-tag {
+  align-self: center; padding: 1px 8px; border-radius: 999px; font-size: 12px;
+  color: var(--ink-soft); border: 1px solid var(--line);
+}
+.sa-owner-tag.mine { color: var(--rust); border-color: color-mix(in srgb, var(--rust) 40%, transparent); }
 .sa-draft {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   margin: 18px 0 0; padding: 10px 14px; font-size: 13px; color: var(--ink-soft);

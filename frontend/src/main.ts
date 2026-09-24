@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import 'ant-design-vue/dist/reset.css'
+import './styles/fonts.css'
 import './styles/global.css'
 import App from './App.vue'
 import { i18n } from './i18n'

@@ -138,7 +138,11 @@
       "renameFailed": "名前を変更できませんでした",
       "deleteFailed": "削除できませんでした",
       "save": "保存",
-      "cancel": "キャンセル"
+      "cancel": "キャンセル",
+      "adminView": "管理者ビュー：すべての訪問者の旅程を表示しています（{n} 件）。設定の管理パスコードを消すと通常表示に戻ります。",
+      "mine": "自分",
+      "otherVisitor": "他の訪問者",
+      "legacy": "以前の旅程"
     },
     "loading": {
       "initializing": "初期化中...",
