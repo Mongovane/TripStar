@@ -60,9 +60,10 @@
                     class="chat-msg"
                     :class="msg.role"
                   >
-                    {{ msg.content }}
+                    <div v-if="msg.role === 'assistant'" class="chat-md" v-html="renderMarkdown(msg.content)"></div>
+                    <template v-else>{{ msg.content }}</template>
                   </div>
-                  <div v-if="chatLoading" class="chat-msg assistant typing">
+                  <div v-if="chatLoading" class="chat-msg assistant typing" :aria-label="t('result.chat.thinking')" role="status">
                     <span class="dot"></span>
                     <span class="dot"></span>
                     <span class="dot"></span>
@@ -79,52 +80,14 @@
               </div>
               <div class="options">
                 <div class="btns-add">
-                  <button type="button" disabled>
-                    <svg
-                      viewBox="0 0 24 24"
-                      height="20"
-                      width="20"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M7 8v8a5 5 0 1 0 10 0V6.5a3.5 3.5 0 1 0-7 0V15a2 2 0 0 0 4 0V8"
-                        stroke-width="2"
-                        stroke-linejoin="round"
-                        stroke-linecap="round"
-                        stroke="currentColor"
-                        fill="none"
-                      ></path>
-                    </svg>
-                  </button>
-                  <button type="button" disabled>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zm0 10a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1zm0-8h6m-3-3v6"
-                      ></path>
-                    </svg>
-                  </button>
-                  <button type="button" disabled>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        fill="currentColor"
-                        d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10s-4.477 10-10 10m-2.29-2.333A17.9 17.9 0 0 1 8.027 13H4.062a8.01 8.01 0 0 0 5.648 6.667M10.03 13c.151 2.439.848 4.73 1.97 6.752A15.9 15.9 0 0 0 13.97 13zm9.908 0h-3.965a17.9 17.9 0 0 1-1.683 6.667A8.01 8.01 0 0 0 19.938 13M4.062 11h3.965A17.9 17.9 0 0 1 9.71 4.333A8.01 8.01 0 0 0 4.062 11m5.969 0h3.938A15.9 15.9 0 0 0 12 4.248A15.9 15.9 0 0 0 10.03 11m4.259-6.667A17.9 17.9 0 0 1 15.973 11h3.965a8.01 8.01 0 0 0-5.648-6.667"
-                      ></path>
-                    </svg>
+                  <button
+                    v-if="chatHistory.length > 0"
+                    type="button"
+                    class="chat-clear-btn"
+                    :disabled="chatLoading"
+                    @click="clearChat"
+                  >
+                    {{ t('result.chat.clear') }}
                   </button>
                 </div>
                 <button
@@ -157,9 +120,11 @@ import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import type { ChatMessage, TripPlan } from '@/types'
 import { getRuntimeApiBaseUrl } from '@/services/api'
+import { renderMarkdown } from '@/utils/markdown'
 
 const props = defineProps<{
   tripPlan: TripPlan | null
+  planId?: string
   hideTrigger?: boolean
 }>()
 
@@ -189,6 +154,43 @@ const chatPlaceholder = computed(() => {
   if (!props.tripPlan) return t('result.noTripPlanDesc')
   return t('result.chat.placeholder')
 })
+
+// ── 聊天记录按行程编号保存在本地，刷新或稍后回来都还在 ──
+const CHAT_STORAGE_PREFIX = 'tripstar.chat.'
+const MAX_STORED_MESSAGES = 40
+const storageKey = () => (props.planId ? `${CHAT_STORAGE_PREFIX}${props.planId}` : '')
+
+const loadStoredChat = () => {
+  const key = storageKey()
+  if (!key) return
+  try {
+    const raw = window.localStorage.getItem(key)
+    const parsed = raw ? JSON.parse(raw) : []
+    chatHistory.value = Array.isArray(parsed) ? parsed : []
+  } catch {
+    chatHistory.value = []
+  }
+}
+
+const persistChat = () => {
+  const key = storageKey()
+  if (!key) return
+  try {
+    window.localStorage.setItem(key, JSON.stringify(chatHistory.value.slice(-MAX_STORED_MESSAGES)))
+  } catch {
+    /* 存储满或被禁用时忽略 */
+  }
+}
+
+watch(() => props.planId, loadStoredChat, { immediate: true })
+
+const clearChat = () => {
+  chatHistory.value = []
+  const key = storageKey()
+  if (key) {
+    try { window.localStorage.removeItem(key) } catch { /* ignore */ }
+  }
+}
 
 const scrollChatToBottom = () => {
   nextTick(() => {
@@ -246,15 +248,34 @@ const sendChatMessage = async () => {
     chatHistory.value.push({ role: 'assistant', content: t('result.chat.networkError') })
   } finally {
     chatLoading.value = false
+    persistChat()
     scrollChatToBottom()
   }
 }
 </script>
 
 <style scoped lang="scss">
+.chat-md :deep(p) { margin: 0 0 16px; font-size: inherit; line-height: inherit; }
+.chat-md :deep(p:last-child) { margin-bottom: 0; }
+.chat-md :deep(.md-h) { font-weight: 700; }
+.chat-md :deep(strong) { font-weight: 700; color: #241D18; }
+.chat-md :deep(ul), .chat-md :deep(ol) { margin: 4px 0 16px; padding-left: 1.3em; font-size: inherit; }
+.chat-md :deep(li) { margin: 4px 0; font-size: inherit; }
+.chat-md :deep(blockquote) {
+  margin: 12px 0; padding: 10px 24px; border-left: 8px solid #D9A441; font-size: inherit;
+  background: rgba(217, 164, 65, 0.1); border-radius: 0 20px 20px 0;
+}
+.chat-md :deep(code) { padding: 0 4px; border-radius: 4px; background: rgba(36, 29, 24, 0.08); font-size: 0.92em; }
+.card .chat .options .btns-add .chat-clear-btn {
+  font-family: inherit; align-items: center;
+  border: 1px solid rgba(36, 29, 24, 0.18); background: transparent; color: #6B5C4C;
+  border-radius: 999px; padding: 0 28px; height: 64px; line-height: 1; font-size: 30px; border-width: 2px; cursor: pointer;
+}
+.card .chat .options .btns-add .chat-clear-btn:hover:not(:disabled) { color: #C0562A; border-color: #C0562A; }
+
 .ai-chat-floating {
   position: fixed;
-  left: 8px;
+  right: 8px;
   bottom: 8px;
   z-index: 1000;
   transform: scale(0.3);
@@ -280,7 +301,7 @@ const sendChatMessage = async () => {
   align-items: center;
   justify-items: center;
   position: absolute;
-  left: 0;
+  right: 0;
   bottom: 0;
   z-index: 9;
   transform-style: preserve-3d;
@@ -517,7 +538,8 @@ const sendChatMessage = async () => {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   transition: all 0.3s ease;
 }
 
@@ -681,6 +703,7 @@ const sendChatMessage = async () => {
 }
 
 .card .chat .options {
+  flex: none;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -1139,16 +1162,18 @@ const sendChatMessage = async () => {
 }
 
 @media (max-width: 768px) {
+  /* 与桌面端一致：外层不占尺寸，面板以右下角为锚点向左上展开 */
   .ai-chat-floating {
-    left: 12px;
+    right: 12px;
     bottom: 12px;
-    width: 220px;
-    height: 220px;
+    width: 0;
+    height: 0;
   }
 
+  /* 外层整体 scale(0.3)，这里按比例反推：打开后约为屏宽减 24px、七成屏高 */
   .container-wrap.open .content-card {
-    width: 300px;
-    height: 220px;
+    width: calc((100vw - 24px) / 0.3);
+    height: calc(70vh / 0.3);
   }
 
   .container-wrap:after {

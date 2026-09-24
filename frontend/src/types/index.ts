@@ -20,6 +20,8 @@ export interface Attraction {
   rating?: number
   image_url?: string
   ticket_price?: number
+  reservation_required?: boolean
+  reservation_tips?: string
 }
 
 export interface Meal {
@@ -85,6 +87,8 @@ export interface TripPlan {
   weather_info: WeatherInfo[]
   overall_suggestions: string
   budget?: Budget
+  travelers?: number
+  budget_limit?: number | null
 }
 
 export interface TripFormData {
@@ -97,6 +101,8 @@ export interface TripFormData {
   accommodation: string
   preferences: string[]
   free_text_input: string
+  travelers?: number
+  budget_limit?: number | null
   language?: string
   user_id?: string
 }

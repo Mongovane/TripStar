@@ -7,7 +7,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
+  <!-- 字体统一在这里用 <link> 加载：即使 Google Fonts 不可达，也只会回退到备用字体。
+       不要在组件 CSS 里 @import 远程字体，否则加载失败时整个路由的 CSS 会被判定失败、页面白屏。 -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Mono:wght@400;500&family=Nunito+Sans:opsz@6..12&family=Raleway:wght@700&display=swap"
     rel="stylesheet">
   <title>TripStar</title>
 </head>

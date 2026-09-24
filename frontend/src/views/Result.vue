@@ -38,7 +38,7 @@
               <a-button v-if="!editMode" @click="toggleEditMode" type="default">
                 {{ t('result.editTrip') }}
               </a-button>
-              <a-button v-else @click="saveChanges" type="primary">
+              <a-button v-else @click="saveChanges" type="primary" :loading="savingPlan">
                 {{ t('result.saveChanges') }}
               </a-button>
               <a-button v-if="editMode" @click="cancelEdit" type="default">
@@ -59,6 +59,56 @@
           :bordered="false"
           class="overview-card section-shellless"
         >
+          <section class="trip-summary" :aria-label="t('result.side.overview')">
+            <dl class="trip-summary-grid">
+              <div class="trip-summary-cell">
+                <dt>{{ t('result.summary.dates') }}</dt>
+                <dd>
+                  {{ t('result.dateRange', { start: tripPlan.start_date, end: tripPlan.end_date }) }}
+                  <small>{{ t('result.summary.duration', { days: tripPlan.days.length }) }}</small>
+                </dd>
+              </div>
+              <div class="trip-summary-cell">
+                <dt>{{ t('result.summary.cities') }}</dt>
+                <dd>{{ summaryCities }}</dd>
+              </div>
+              <div v-if="tripPlan.budget" class="trip-summary-cell">
+                <dt>{{ t('result.summary.total') }}</dt>
+                <dd>
+                  <button type="button" class="trip-summary-link" @click="scrollToSection({ key: 'budget' })">
+                    ¥{{ formatBudgetAmount(tripPlan.budget.total ?? 0) }}
+                  </button>
+                  <small v-if="travelerCount > 1">
+                    {{ t('result.summary.travelers', { n: travelerCount }) }}，{{ t('result.summary.perPerson', { amount: formatBudgetAmount(perPersonTotal) }) }}
+                  </small>
+                  <small v-if="budgetLimitStatus" :class="{ 'is-over': budgetLimitStatus.over > 0 }">{{ budgetLimitStatus.text }}</small>
+                </dd>
+              </div>
+              <div class="trip-summary-cell">
+                <dt>{{ t('result.summary.reservations') }}</dt>
+                <dd>
+                  <button
+                    v-if="reservationItems.length > 0"
+                    type="button"
+                    class="trip-summary-link"
+                    :title="t('result.summary.viewReservations')"
+                    @click="goToDayFromOverview(reservationItems[0].dayIdx)"
+                  >
+                    {{ t('result.summary.reservationCount', { n: reservationItems.length }) }}
+                  </button>
+                  <template v-else>{{ t('result.summary.noReservation') }}</template>
+                  <small v-if="reservationItems.length > 0">{{ reservationItems.map(r => r.name).join('、') }}</small>
+                </dd>
+              </div>
+            </dl>
+            <div v-if="suggestionItems.length > 0" class="trip-suggestions">
+              <h3 class="trip-suggestions-title">{{ t('result.summary.suggestionsTitle') }}</h3>
+              <ol class="trip-suggestions-list">
+                <li v-for="(tip, tipIdx) in suggestionItems" :key="tipIdx">{{ tip }}</li>
+              </ol>
+            </div>
+          </section>
+
           <div v-if="overviewAttractions.length > 0" class="overview-orrery-wrap">
             <OverviewOrrery
               :attractions="overviewAttractions"
@@ -67,17 +117,7 @@
             />
           </div>
           <a-empty v-else :description="t('common.noData')" />
-          <div class="overview-meta">
-            <span class="overview-meta-item" style="color: var(--rust); font-weight: 700;">
-              {{ t('result.dateRange', { start: tripPlan.start_date, end: tripPlan.end_date }) }}
-            </span>
-            <span v-if="planId" class="overview-meta-item">
-              Plan ID: {{ planId }}
-            </span>
-            <span v-if="tripPlan.overall_suggestions" class="overview-meta-item">
-              {{ tripPlan.overall_suggestions }}
-            </span>
-          </div>
+          <p v-if="planId" class="trip-plan-id">Plan ID: {{ planId }}</p>
         </a-card>
 
         <!-- 顶部信息区:预算/地图 -->
@@ -180,6 +220,12 @@
                 <span class="budget-summary-currency">¥</span>
                 <span class="budget-summary-total-value">{{ formatBudgetAmount(tripPlan.budget?.total ?? 0) }}</span>
               </div>
+              <p v-if="travelerCount > 1" class="budget-summary-caption">
+                {{ t('result.budget.travelersNote', { n: travelerCount }) }}，{{ t('result.budget.perPerson') }} ¥{{ formatBudgetAmount(perPersonTotal) }}
+              </p>
+              <p v-if="budgetLimitStatus" class="budget-summary-limit" :class="{ 'is-over': budgetLimitStatus.over > 0 }">
+                {{ budgetLimitStatus.text }}
+              </p>
               <div class="budget-summary-sub-grid">
                 <div class="budget-summary-sub-item">
                   <div class="budget-summary-sub-value">¥{{ formatBudgetAmount(tripPlan.budget?.total_attractions ?? 0) }}</div>
@@ -260,13 +306,13 @@
         <a-card v-show="activeSection === 'days'" :bordered="false" class="days-card section-shellless">
           <a-collapse v-model:activeKey="activeDays" accordion>
             <a-collapse-panel
-              v-for="(day, index) in tripPlan.days"
-              :key="index"
-              :id="`day-${index}`"
+              v-for="(day, dayIdx) in tripPlan.days"
+              :key="dayIdx"
+              :id="`day-${dayIdx}`"
             >
               <template #header>
                 <div class="day-header">
-                  <span class="day-title">{{ t('common.dayNumber', { day: index + 1 }) }}</span>
+                  <span class="day-title">{{ t('common.dayNumber', { day: dayIdx + 1 }) }}</span>
                   <span v-if="day.city" class="day-city-tag">{{ day.city }}</span>
                   <span v-if="day.is_transfer_day" class="day-transfer-tag">{{ t('result.transferDay') }}</span>
                   <span class="day-date">{{ day.date }}</span>
@@ -298,48 +344,70 @@
 
               <!-- 景点安排 -->
               <a-divider orientation="left">{{ t('result.attractionTitle') }}</a-divider>
+              <p v-if="day.attractions.length > 0" class="schedule-note">
+                {{ t('result.scheduleNote', { start: SCHEDULE_START, gap: SCHEDULE_GAP_MINUTES }) }}
+              </p>
               <a-list
                 :data-source="day.attractions"
-                :grid="{ gutter: 16, column: 2 }"
+                :grid="{ gutter: 16, xs: 1, sm: 1, md: 2, lg: 2, xl: 2, xxl: 2 }"
               >
                 <template #renderItem="{ item, index }">
                   <a-list-item>
-                    <a-card :title="item.name" size="small" class="attraction-card">
+                    <a-card size="small" class="attraction-card">
+                      <template #title>
+                        <div class="attraction-title">
+                          <span class="attraction-time">{{ daySchedules[dayIdx]?.[index] }}</span>
+                          <span class="attraction-name">{{ item.name }}</span>
+                        </div>
+                      </template>
                       <!-- 编辑模式下的操作按钮 -->
                       <template #extra v-if="editMode">
-                        <a-space>
+                        <a-space :size="4" wrap>
                           <a-button
                             size="small"
-                            @click="moveAttraction(day.day_index, index, 'up')"
+                            :aria-label="t('result.moveUp')"
+                            :title="t('result.moveUp')"
+                            @click="moveAttraction(dayIdx, index, 'up')"
                             :disabled="index === 0"
-                          >
-                            Up
-                          </a-button>
+                          >↑</a-button>
                           <a-button
                             size="small"
-                            @click="moveAttraction(day.day_index, index, 'down')"
+                            :aria-label="t('result.moveDown')"
+                            :title="t('result.moveDown')"
+                            @click="moveAttraction(dayIdx, index, 'down')"
                             :disabled="index === day.attractions.length - 1"
-                          >
-                            Down
-                          </a-button>
-                          <a-button
+                          >↓</a-button>
+                          <a-select
+                            v-if="tripPlan.days.length > 1"
                             size="small"
-                            danger
-                            @click="deleteAttraction(day.day_index, index)"
+                            class="move-day-select"
+                            :placeholder="t('result.moveToDay')"
+                            :value="undefined"
+                            @change="(target: any) => moveAttractionToDay(dayIdx, index, Number(target))"
                           >
+                            <a-select-option
+                              v-for="(_, targetIdx) in tripPlan.days"
+                              :key="targetIdx"
+                              :value="targetIdx"
+                              :disabled="targetIdx === dayIdx"
+                            >
+                              {{ t('common.dayNumber', { day: targetIdx + 1 }) }}
+                            </a-select-option>
+                          </a-select>
+                          <a-button size="small" danger @click="deleteAttraction(dayIdx, index)">
                             {{ t('common.delete') }}
                           </a-button>
                         </a-space>
                       </template>
 
-                      <!-- 景点图片 -->
-                      <div class="attraction-image-wrapper">
+                      <!-- 景点图片：图片加载失败时收起，只保留编号与票价 -->
+                      <div v-if="!failedImages[item.name]" class="attraction-image-wrapper">
                         <img
                           :src="getAttractionImage(item.name, index) || toProxiedPhotoUrl(item.image_url)"
                           :alt="item.name"
                           class="attraction-image"
                           loading="lazy"
-                          @error="handleImageError"
+                          @error="onAttractionImageError(item.name)"
                         />
                         <div class="attraction-badge">
                           <span class="badge-number">{{ index + 1 }}</span>
@@ -347,6 +415,10 @@
                         <div v-if="item.ticket_price" class="price-tag">
                           ¥{{ item.ticket_price }}
                         </div>
+                      </div>
+                      <div v-else class="attraction-compact">
+                        <span class="attraction-compact-no">{{ index + 1 }}</span>
+                        <span v-if="item.ticket_price" class="attraction-compact-price">¥{{ item.ticket_price }}</span>
                       </div>
 
                       <!-- 编辑模式下可编辑的字段 -->
@@ -363,13 +435,22 @@
 
                       <!-- 查看模式 -->
                       <div v-else>
-                        <p><strong>{{ t('result.fieldAddress') }}:</strong> {{ item.address }}</p>
+                        <p class="attraction-address">
+                          <strong>{{ t('result.fieldAddress') }}:</strong> {{ item.address }}
+                          <a
+                            v-if="getNavigationUrl(item)"
+                            class="attraction-nav-link"
+                            :href="getNavigationUrl(item)"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >{{ t('result.navigate') }} ↗</a>
+                        </p>
                         <p><strong>{{ t('result.fieldVisitDuration') }}:</strong> {{ item.visit_duration }}{{ t('result.minuteUnit') }}</p>
                         <p><strong>{{ t('result.fieldDescription') }}:</strong> {{ item.description }}</p>
                         <p v-if="item.rating"><strong>{{ t('result.fieldRating') }}:</strong> {{ item.rating }}</p>
                         <!-- 预约提醒 -->
                         <div v-if="item.reservation_required" class="reservation-alert">
-                          <span class="reservation-badge">📋 需提前预约</span>
+                          <span class="reservation-badge">📋 {{ t('result.reservationRequired') }}</span>
                           <span v-if="item.reservation_tips" class="reservation-tips">{{ item.reservation_tips }}</span>
                         </div>
                       </div>
@@ -377,6 +458,9 @@
                   </a-list-item>
                 </template>
               </a-list>
+              <a-button v-if="editMode" class="add-attraction-btn" block @click="openAddAttraction(dayIdx)">
+                + {{ t('result.addAttraction') }}
+              </a-button>
 
               <!-- 酒店推荐 -->
               <a-divider v-if="day.hotel" orientation="left">{{ t('result.hotelTitle') }}</a-divider>
@@ -384,7 +468,7 @@
                 <template #title>
                   <span class="hotel-title">{{ day.hotel.name }}</span>
                 </template>
-                <a-descriptions :column="2" size="small">
+                <a-descriptions :column="{ xs: 1, sm: 1, md: 2 }" size="small">
                   <a-descriptions-item :label="t('result.fieldAddress')">{{ day.hotel.address }}</a-descriptions-item>
                   <a-descriptions-item :label="t('result.fieldType')">{{ day.hotel.type }}</a-descriptions-item>
                   <a-descriptions-item :label="t('result.fieldPriceRange')">{{ day.hotel.price_range }}</a-descriptions-item>
@@ -573,19 +657,56 @@
     </main>
 
     <!-- 回到顶部按钮 -->
-    <a-back-top :visibility-height="300">
-      <div class="back-top-button">
-        Top
+    <a-back-top :visibility-height="300" class="result-back-top">
+      <div class="back-top-button" :aria-label="t('result.backTop')" :title="t('result.backTop')">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 15V4M4 8.5 9 3.5l5 5"/></svg>
       </div>
     </a-back-top>
 
-    <AIChat ref="aiChatRef" :trip-plan="tripPlan" hide-trigger />
-    <TravelBuddy @open="openBuddyChat" />
+    <div v-if="tripPlan" class="assist-dock">
+      <button
+        v-if="!buddyVisible"
+        type="button"
+        class="assist-duck-toggle"
+        :title="t('buddy.show')"
+        :aria-label="t('buddy.show')"
+        @click="setBuddyVisible(true)"
+      >🐤</button>
+      <button type="button" class="assist-ask-btn" @click="openBuddyChat">{{ t('result.askAI') }}</button>
+    </div>
+
+    <AIChat ref="aiChatRef" :trip-plan="tripPlan" :plan-id="planId" hide-trigger />
+    <TravelBuddy v-if="tripPlan && buddyVisible" @open="openBuddyChat" @hide="setBuddyVisible(false)" />
+
+    <a-modal
+      v-model:open="addDialog.open"
+      :title="t('result.addAttractionTitle', { day: addDialog.dayIdx + 1 })"
+      :confirm-loading="addDialog.saving"
+      :ok-text="t('result.addAttraction')"
+      :cancel-text="t('result.cancelEdit')"
+      @ok="confirmAddAttraction"
+    >
+      <a-form layout="vertical">
+        <a-form-item :label="t('result.fieldName')" required :validate-status="addDialog.nameError ? 'error' : ''" :help="addDialog.nameError || undefined">
+          <a-input v-model:value="addDialog.name" @press-enter="confirmAddAttraction" />
+        </a-form-item>
+        <a-form-item :label="t('result.fieldAddress')">
+          <a-input v-model:value="addDialog.address" />
+        </a-form-item>
+        <a-form-item :label="t('result.fieldVisitDurationMinutes')">
+          <a-input-number v-model:value="addDialog.duration" :min="10" :max="480" :step="15" style="width: 100%" />
+        </a-form-item>
+        <a-form-item :label="t('result.fieldDescription')">
+          <a-textarea v-model:value="addDialog.description" :rows="2" />
+        </a-form-item>
+      </a-form>
+      <p v-if="addDialog.saving" class="add-dialog-status">{{ t('result.locating') }}</p>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { computed, h, reactive, ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
@@ -594,14 +715,17 @@ import OverviewOrrery from '@/components/OverviewOrrery.vue'
 import KnowledgeGraph from '@/components/KnowledgeGraph.vue'
 import AIChat from '@/components/AIChat.vue'
 import TravelBuddy from '@/components/TravelBuddy.vue'
-import type { TripPlan, TripPlanResponse, WeatherInfo } from '@/types'
+import type { Attraction, TripPlan, TripPlanResponse, WeatherInfo } from '@/types'
 import { useBudget } from '@/composables/useBudget'
 import { useMap } from '@/composables/useMap'
 import {
+  geocodePlace,
   getRuntimeApiBaseUrl,
   pollTaskStatus,
   RUNTIME_SETTINGS_UPDATED_EVENT,
+  updateTripPlan,
 } from '@/services/api'
+import { splitSuggestions } from '@/utils/markdown'
 
 const router = useRouter()
 const route = useRoute()
@@ -613,6 +737,125 @@ const originalPlan = ref<TripPlan | null>(null)
 const attractionPhotos = ref<Record<string, string>>({})
 const activeSection = ref('overview')
 const activeDays = ref<number[]>([0]) // 默认展开第一天
+const savingPlan = ref(false)
+const failedImages = ref<Record<string, boolean>>({})
+
+// ── Tab / 当前展开的天 与 URL 同步：刷新后停在原处，也能分享"第 N 天"的链接 ──
+const SECTION_KEYS = ['overview', 'budget', 'map', 'days', 'knowledge-graph', 'weather']
+const currentDayIndex = (): number => {
+  const raw = activeDays.value as unknown
+  const value = Array.isArray(raw) ? raw[0] : raw
+  const num = Number(value)
+  return Number.isFinite(num) ? num : -1
+}
+const restoreViewFromQuery = () => {
+  const tab = String(route.query.tab || '')
+  if (SECTION_KEYS.includes(tab)) activeSection.value = tab
+  const day = Number(route.query.day)
+  if (Number.isInteger(day) && day >= 1 && tripPlan.value && day <= tripPlan.value.days.length) {
+    activeDays.value = [day - 1]
+  }
+}
+const syncViewToQuery = () => {
+  if (!tripPlan.value) return
+  const query: Record<string, any> = { ...route.query }
+  if (activeSection.value && activeSection.value !== 'overview') query.tab = activeSection.value
+  else delete query.tab
+  const dayIdx = currentDayIndex()
+  if (activeSection.value === 'days' && dayIdx >= 0) query.day = String(dayIdx + 1)
+  else delete query.day
+  if (planId.value) query.plan_id = planId.value
+  const same = JSON.stringify(query) === JSON.stringify({ ...route.query })
+  if (!same) void router.replace({ query })
+}
+watch([activeSection, activeDays], syncViewToQuery, { deep: true })
+
+// ── 小鸭显示开关（记住用户选择） ──
+const BUDDY_STORAGE_KEY = 'tripstar.buddy.visible'
+const readBuddyVisible = (): boolean => {
+  // 用户选过就按用户的；没选过时，窄屏默认不显示（手机上没有页边空间，会压住正文）
+  try {
+    const saved = window.localStorage.getItem(BUDDY_STORAGE_KEY)
+    if (saved === '1') return true
+    if (saved === '0') return false
+  } catch { /* ignore */ }
+  return window.innerWidth >= 768
+}
+const buddyVisible = ref(readBuddyVisible())
+const setBuddyVisible = (visible: boolean) => {
+  buddyVisible.value = visible
+  try { window.localStorage.setItem(BUDDY_STORAGE_KEY, visible ? '1' : '0') } catch { /* ignore */ }
+}
+
+// ── 概览摘要 ──
+const summaryCities = computed(() => {
+  const plan = tripPlan.value
+  if (!plan) return ''
+  const list = plan.cities && plan.cities.length > 0
+    ? plan.cities
+    : Array.from(new Set(plan.days.map(d => d.city).filter(Boolean))) as string[]
+  return (list.length > 0 ? list : [plan.city]).join(' → ')
+})
+const suggestionItems = computed(() => splitSuggestions(tripPlan.value?.overall_suggestions || ''))
+const reservationItems = computed(() => {
+  const items: Array<{ name: string; dayIdx: number }> = []
+  tripPlan.value?.days.forEach((day, dayIdx) => {
+    day.attractions.forEach((a) => { if (a.reservation_required) items.push({ name: a.name, dayIdx }) })
+  })
+  return items
+})
+const travelerCount = computed(() => Math.max(1, Number(tripPlan.value?.travelers) || 1))
+const perPersonTotal = computed(() => Math.round((tripPlan.value?.budget?.total ?? 0) / travelerCount.value))
+const budgetLimitStatus = computed(() => {
+  const limit = Number(tripPlan.value?.budget_limit) || 0
+  if (!limit || !tripPlan.value?.budget) return null
+  const total = tripPlan.value.budget.total ?? 0
+  const over = total - limit
+  return {
+    over,
+    text: over > 0
+      ? t('result.budget.overLimit', { over: formatBudgetAmount(over) })
+      : t('result.budget.withinLimit', { limit: formatBudgetAmount(limit), left: formatBudgetAmount(-over) }),
+  }
+})
+
+// ── 每日时段估算：从 09:00 出发，每两站之间预留 30 分钟交通 ──
+const SCHEDULE_START = '09:00'
+const SCHEDULE_GAP_MINUTES = 30
+const formatClock = (minutes: number) => {
+  const m = Math.max(0, Math.round(minutes))
+  const hh = Math.floor(m / 60) % 24
+  const mm = m % 60
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+}
+const daySchedules = computed<string[][]>(() => {
+  if (!tripPlan.value) return []
+  const [sh, sm] = SCHEDULE_START.split(':').map(Number)
+  return tripPlan.value.days.map((day) => {
+    let cursor = sh * 60 + sm
+    return day.attractions.map((a) => {
+      const duration = Number(a.visit_duration) > 0 ? Number(a.visit_duration) : 90
+      const label = `${formatClock(cursor)}–${formatClock(cursor + duration)}`
+      cursor += duration + SCHEDULE_GAP_MINUTES
+      return label
+    })
+  })
+})
+
+// ── 导航链接：按当前地图服务商生成（高德坐标为 GCJ-02，Google 为 WGS-84） ──
+const getNavigationUrl = (item: Attraction): string => {
+  const lng = Number(item.location?.longitude)
+  const lat = Number(item.location?.latitude)
+  if (!lng || !lat) return ''
+  if (mapProviderType.value === 'google') {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+  }
+  return `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(item.name)}&coordinate=gaode&callnative=1&src=tripstar`
+}
+
+const onAttractionImageError = (name: string) => {
+  failedImages.value = { ...failedImages.value, [name]: true }
+}
 const {
   mapRefreshing, mapNotice, mapProviderType, refreshMap, ensureMapReady, destroyCurrentMap, captureMapScreenshot,
 } = useMap(tripPlan, { escapeHtml: (value: unknown) => escapeHtml(value) })
@@ -830,6 +1073,7 @@ const applyTripPlanPayload = async (payload: {
 
   sessionStorage.setItem('tripPlan', JSON.stringify(payload.plan))
 
+  restoreViewFromQuery()
   await loadAttractionPhotos()
   if (activeSection.value === 'map') await ensureMapReady()
 }
@@ -941,17 +1185,41 @@ const toggleEditMode = () => {
   message.info(t('result.messages.enterEditMode'))
 }
 
-// 保存修改
-const saveChanges = () => {
-  editMode.value = false
+// 保存修改：写回后端，失败时保持编辑状态，避免用户以为已保存
+const saveChanges = async () => {
+  if (!tripPlan.value || savingPlan.value) return
   recalculateBudgetTotals()
-  // 更新sessionStorage
-  if (tripPlan.value) {
-    sessionStorage.setItem('tripPlan', JSON.stringify(tripPlan.value))
-  }
-  message.success(t('result.messages.changesSaved'))
+  const snapshot = JSON.parse(JSON.stringify(tripPlan.value)) as TripPlan
 
-  // 重新初始化地图以反映更改
+  if (!planId.value) {
+    sessionStorage.setItem('tripPlan', JSON.stringify(snapshot))
+    editMode.value = false
+    message.warning(t('result.messages.savedLocalOnly'))
+    afterPlanChanged()
+    return
+  }
+
+  savingPlan.value = true
+  try {
+    await updateTripPlan(planId.value, snapshot)
+    sessionStorage.setItem('tripPlan', JSON.stringify(snapshot))
+    sessionStorage.setItem('planId', planId.value)
+    editMode.value = false
+    originalPlan.value = null
+    message.success(t('result.messages.changesSaved'))
+    afterPlanChanged()
+  } catch (error: any) {
+    message.error({
+      content: t('result.messages.saveFailedDetail', { error: error?.message || t('result.messages.saveFailed') }),
+      duration: 6,
+    })
+  } finally {
+    savingPlan.value = false
+  }
+}
+
+const afterPlanChanged = () => {
+  void loadAttractionPhotos()
   if (activeSection.value === 'map') {
     void refreshMap()
   } else {
@@ -969,7 +1237,7 @@ const cancelEdit = () => {
   message.info(t('result.messages.editCanceled'))
 }
 
-// 删除景点
+// 删除景点（可撤销）
 const deleteAttraction = (dayIndex: number, attrIndex: number) => {
   if (!tripPlan.value) return
 
@@ -979,9 +1247,85 @@ const deleteAttraction = (dayIndex: number, attrIndex: number) => {
     return
   }
 
-  day.attractions.splice(attrIndex, 1)
+  const [removed] = day.attractions.splice(attrIndex, 1)
   recalculateBudgetTotals()
-  message.success(t('result.messages.attractionDeleted'))
+
+  const key = `undo-delete-${Date.now()}`
+  const undo = () => {
+    const target = tripPlan.value?.days[dayIndex]
+    if (!target || !removed) return
+    target.attractions.splice(Math.min(attrIndex, target.attractions.length), 0, removed)
+    recalculateBudgetTotals()
+    message.success({ content: t('result.messages.attractionRestored', { name: removed.name }), key })
+  }
+  message.info({
+    key,
+    duration: 6,
+    content: h('span', { class: 'undo-toast' }, [
+      t('result.messages.attractionDeletedName', { name: removed?.name || '' }),
+      h('button', { type: 'button', class: 'undo-toast-btn', onClick: undo }, t('result.messages.undo')),
+    ]),
+  })
+}
+
+// 跨天移动景点
+const moveAttractionToDay = (fromDay: number, attrIndex: number, toDay: number) => {
+  if (!tripPlan.value || fromDay === toDay || !Number.isInteger(toDay)) return
+  const source = tripPlan.value.days[fromDay]
+  const target = tripPlan.value.days[toDay]
+  if (!source || !target) return
+  if (source.attractions.length <= 1) {
+    message.warning(t('result.messages.keepOneAttraction'))
+    return
+  }
+  const [moved] = source.attractions.splice(attrIndex, 1)
+  target.attractions.push(moved)
+  recalculateBudgetTotals()
+  message.success(t('result.messages.attractionMoved', { day: toDay + 1 }))
+}
+
+// 手动添加景点
+const addDialog = reactive({
+  open: false,
+  dayIdx: 0,
+  name: '',
+  address: '',
+  duration: 90,
+  description: '',
+  nameError: '',
+  saving: false,
+})
+const openAddAttraction = (dayIdx: number) => {
+  Object.assign(addDialog, { open: true, dayIdx, name: '', address: '', duration: 90, description: '', nameError: '', saving: false })
+}
+const confirmAddAttraction = async () => {
+  if (!tripPlan.value || addDialog.saving) return
+  const name = addDialog.name.trim()
+  if (!name) {
+    addDialog.nameError = t('result.nameRequired')
+    return
+  }
+  addDialog.nameError = ''
+  addDialog.saving = true
+  const day = tripPlan.value.days[addDialog.dayIdx]
+  const city = day?.city || tripPlan.value.city
+  const location = await geocodePlace(name, city, addDialog.address.trim())
+  const attraction: Attraction = {
+    name,
+    address: addDialog.address.trim() || city,
+    location: location || { longitude: 0, latitude: 0 },
+    visit_duration: addDialog.duration || 90,
+    description: addDialog.description.trim(),
+    category: '景点',
+    ticket_price: 0,
+  }
+  day.attractions.push(attraction)
+  recalculateBudgetTotals()
+  void loadAttractionPhotos()
+  addDialog.saving = false
+  addDialog.open = false
+  if (location) message.success(t('result.messages.attractionAdded', { name }))
+  else message.warning({ content: t('result.messages.locationNotFound', { name }), duration: 5 })
 }
 
 // 移动景点顺序
@@ -1050,16 +1394,6 @@ const getAttractionImage = (name: string, _index: number): string => {
 
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`
 }
-
-// 图片加载失败时的处理
-const handleImageError = (event: Event) => {
-  const img = event.target as HTMLImageElement
-  // 使用深色占位图
-  const label = encodeURIComponent(t('result.imageLoadFailed'))
-  img.src = `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect width="400" height="300" fill="%231a262f"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="18" fill="rgba(255,255,255,0.4)"%3E${label}%3C/text%3E%3C/svg%3E`
-}
-
-
 
 // ========== 构建导出用的纯净 HTML ==========
 const buildExportHTML = (mapDataUrl: string = ''): string => {
@@ -1337,7 +1671,7 @@ const escapeHtml = (value: unknown): string => {
   color: var(--ink);
   position: relative;
   isolation: isolate;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .lower-shade {
@@ -1383,7 +1717,14 @@ const escapeHtml = (value: unknown): string => {
   align-items: center;
   gap: 12px;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin: -20px -20px 16px;
+  padding: 12px 20px 0;
+  position: sticky;
+  top: 70px;
+  z-index: 20;
+  background: var(--card);
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 10px 18px -18px rgba(36, 29, 24, 0.55);
 }
 
 .top-switch-menu-wrap {
@@ -3055,6 +3396,229 @@ const escapeHtml = (value: unknown): string => {
 :deep(.lang-select-nav .ant-select-selection-item),
 :deep(.lang-select-nav .ant-select-arrow) { color: var(--ink) !important; }
 
+
+/* ===== 概览摘要 ===== */
+.trip-summary {
+  padding: 20px 22px 6px;
+}
+.trip-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0;
+  margin: 0 0 18px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.trip-summary-cell {
+  padding: 14px 16px 14px 0;
+  min-width: 0;
+}
+.trip-summary-cell + .trip-summary-cell {
+  padding-left: 16px;
+  border-left: 1px solid var(--line-2);
+}
+.trip-summary-cell dt {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.trip-summary-cell dd {
+  margin: 0;
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 1.15rem;
+  line-height: 1.35;
+  color: var(--ink);
+  word-break: break-word;
+}
+.trip-summary-cell small {
+  display: block;
+  margin-top: 2px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.trip-summary-cell small.is-over,
+.budget-summary-limit.is-over {
+  color: var(--rust-deep);
+  font-weight: 600;
+}
+.trip-summary-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--rust);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.trip-summary-link:hover { color: var(--rust-deep); }
+.trip-summary-link:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+.trip-suggestions { margin-bottom: 14px; max-width: 78ch; }
+.trip-suggestions-title {
+  margin: 0 0 8px;
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.trip-suggestions-list {
+  margin: 0;
+  padding-left: 1.4em;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.trip-suggestions-list li { margin: 2px 0; padding-left: 2px; }
+.trip-suggestions-list li::marker { color: var(--rust); font-weight: 600; }
+.trip-plan-id {
+  margin: 0;
+  padding: 8px 22px 14px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+/* ===== 每日行程增强 ===== */
+.schedule-note {
+  margin: -6px 0 12px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.attraction-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.attraction-time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rust);
+}
+.attraction-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attraction-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.attraction-compact-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--rust);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.attraction-compact-price {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rust-deep);
+}
+.attraction-nav-link {
+  margin-left: 8px;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--rust);
+}
+.attraction-nav-link:hover { color: var(--rust-deep); text-decoration: underline; }
+.move-day-select { width: 92px; }
+/* 景点卡片：列表项自带的左右 24px 内边距交给栅格间距处理，卡片更宽 */
+:deep(.days-card .ant-list-item) { padding: 0 0 16px; }
+:deep(.attraction-card .ant-card-head-title) { white-space: normal; overflow: visible; }
+:deep(.attraction-card .ant-card-head-wrapper) { flex-wrap: wrap; gap: 6px 0; }
+.add-attraction-btn {
+  margin: 4px 0 8px;
+  border-style: dashed !important;
+  color: var(--rust) !important;
+}
+.add-dialog-status { margin: 0; font-size: 13px; color: var(--ink-soft); }
+
+/* ===== 预算口径 ===== */
+.budget-summary-caption,
+.budget-summary-limit {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* ===== 右下角：问 AI / 回到顶部 ===== */
+.assist-dock {
+  position: fixed;
+  right: 24px;
+  bottom: 84px;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.assist-ask-btn {
+  height: 40px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--rust);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px -10px rgba(149, 64, 26, 0.7);
+  cursor: pointer;
+}
+.assist-ask-btn:hover { background: var(--rust-deep); }
+.assist-ask-btn:focus-visible,
+.assist-duck-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.assist-duck-toggle {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--card);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+:deep(.result-back-top) {
+  right: 24px !important;
+  bottom: 24px !important;
+}
+.back-top-button { width: 44px !important; height: 44px !important; }
+
+@media (max-width: 991px) {
+  .top-switch-nav { top: 64px; }
+}
+
+@media (max-width: 768px) {
+  .top-switch-nav {
+    margin: -14px -14px 12px;
+    padding: 10px 14px 0;
+  }
+  .trip-summary { padding: 14px 14px 4px; }
+  :deep(.days-card .ant-collapse-content-box) { padding: 12px 10px !important; }
+  .attraction-title { flex-wrap: wrap; gap: 0 8px; padding: 4px 0; }
+  .attraction-name { white-space: normal; }
+  /* 吸顶栏在手机上压缩成两行：Tab 横向滑动一行，操作按钮一行 */
+  .top-switch-nav { flex-direction: column; align-items: stretch; gap: 6px; padding-bottom: 8px; }
+  .top-switch-actions { max-width: none !important; }
+  .top-switch-actions :deep(.ant-space) { flex-wrap: nowrap !important; overflow-x: auto; }
+  .trip-summary-cell + .trip-summary-cell { padding-left: 0; border-left: none; }
+  .trip-summary-cell { border-bottom: 1px solid var(--line-2); padding-right: 0; }
+  .assist-dock { right: 16px; bottom: 76px; }
+  .assist-duck-toggle { display: none; }
+  .result-main { padding-bottom: 140px !important; }
+  :deep(.result-back-top) { right: 16px !important; bottom: 20px !important; }
+}
 </style>
 
 <style>
@@ -3225,5 +3789,14 @@ const escapeHtml = (value: unknown): string => {
 
 #amap-container .amap-info-sharp {
   display: none !important;
+}
+</style>
+
+<style>
+/* 撤销提示挂在 body 上（antd message），不能用 scoped */
+.undo-toast { display: inline-flex; align-items: center; gap: 12px; }
+.undo-toast-btn {
+  padding: 0; border: none; background: none; cursor: pointer;
+  color: #C0562A; font-weight: 600; font-size: 14px; text-decoration: underline; text-underline-offset: 3px;
 }
 </style>

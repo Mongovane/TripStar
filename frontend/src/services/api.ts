@@ -4,6 +4,7 @@ import type {
   RuntimeSettings,
   TripFormData,
   TripHistoryItem,
+  TripPlan,
   TripPlanResponse,
   TripTaskEvent,
 } from '@/types'
@@ -340,6 +341,35 @@ export async function pollTaskStatus(taskId: string): Promise<any> {
   }
 }
 
+/**
+ * 保存结果页的行程修改（写回后端持久化，历史记录 / 新标签页 / 分享链接都能看到）
+ */
+export async function updateTripPlan(planId: string, plan: TripPlan): Promise<void> {
+  try {
+    await apiClient.put(`/api/trip/plan/${encodeURIComponent(planId)}`, { data: plan })
+  } catch (error: any) {
+    console.error('保存行程修改失败:', error)
+    throw new Error(error.response?.data?.detail || error.message || t('result.messages.saveFailed'))
+  }
+}
+
+/**
+ * 手动添加景点时查询坐标；查不到返回 null
+ */
+export async function geocodePlace(
+  name: string,
+  city: string,
+  address = ''
+): Promise<{ longitude: number; latitude: number } | null> {
+  try {
+    const response = await apiClient.get('/api/poi/geocode', { params: { name, city, address } })
+    return response.data?.data || null
+  } catch (error) {
+    console.error('地理编码失败:', error)
+    return null
+  }
+}
+
 export async function getTripHistory(limit = 8): Promise<TripHistoryItem[]> {
   try {
     const response = await apiClient.get<TripHistoryResponse>('/api/trip/history', {
@@ -355,13 +385,63 @@ export async function getTripHistory(limit = 8): Promise<TripHistoryItem[]> {
 const resolveTaskWsUrl = (wsUrl: string): string =>
   wsUrl.startsWith('ws://') || wsUrl.startsWith('wss://') ? wsUrl : `${getWsBaseUrl()}${wsUrl}`
 
+const POLL_INTERVAL_MS = 2500
+const MAX_CONSECUTIVE_POLL_ERRORS = 6
+
+/**
+ * WebSocket 不可用或中途断开时的轮询兜底：后端任务仍在执行，不能直接判定失败。
+ */
+async function pollUntilFinished(
+  taskId: string,
+  options?: GenerateTripPlanOptions
+): Promise<TripPlanResponse> {
+  let consecutiveErrors = 0
+  for (;;) {
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+    let status: any
+    try {
+      status = await pollTaskStatus(taskId)
+      consecutiveErrors = 0
+    } catch (error) {
+      consecutiveErrors += 1
+      if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) throw error
+      continue
+    }
+    if (status?.status === 'completed' && status.result) {
+      return status.result as TripPlanResponse
+    }
+    if (status?.status === 'failed') {
+      throw new Error(status.error || t('api.generateTripPlanFailed'))
+    }
+    options?.onTaskEvent?.({
+      task_id: taskId,
+      plan_id: status?.plan_id || taskId,
+      status: 'processing',
+      stage: status?.stage || 'planning',
+      progress: Number(status?.progress) || 0,
+      message: status?.progress_text || '',
+    } as TripTaskEvent)
+  }
+}
+
 function subscribeTripTask(
   wsUrl: string,
-  options?: GenerateTripPlanOptions
+  options?: GenerateTripPlanOptions,
+  taskId?: string
 ): Promise<TripPlanResponse> {
   return new Promise((resolve, reject) => {
     let settled = false
+    let fallingBack = false
     const socket = new WebSocket(wsUrl)
+    const fallbackToPolling = () => {
+      if (settled || fallingBack) return
+      if (!taskId) {
+        safeReject(new Error(t('api.generateTripPlanFailed')))
+        return
+      }
+      fallingBack = true
+      pollUntilFinished(taskId, options).then(safeResolve, safeReject)
+    }
 
     const safeResolve = (value: TripPlanResponse) => {
       if (settled) return
@@ -400,13 +480,11 @@ function subscribeTripTask(
     }
 
     socket.onerror = () => {
-      safeReject(new Error(t('api.generateTripPlanFailed')))
+      fallbackToPolling()
     }
 
     socket.onclose = () => {
-      if (!settled) {
-        safeReject(new Error(t('api.generateTripPlanFailed')))
-      }
+      if (!settled) fallbackToPolling()
     }
   })
 }
@@ -420,7 +498,7 @@ export async function generateTripPlan(
 ): Promise<TripPlanResponse> {
   const task = await submitTripPlan(formData)
   options?.onTaskCreated?.(task)
-  return subscribeTripTask(resolveTaskWsUrl(task.ws_url), options)
+  return subscribeTripTask(resolveTaskWsUrl(task.ws_url), options, task.task_id)
 }
 
 /**
@@ -440,7 +518,7 @@ export async function resumeTripPlan(
     throw new Error(status.error || t('api.generateTripPlanFailed'))
   }
 
-  return subscribeTripTask(resolveTaskWsUrl(`/api/trip/ws/${taskId}`), options)
+  return subscribeTripTask(resolveTaskWsUrl(`/api/trip/ws/${taskId}`), options, taskId)
 }
 
 /**

@@ -24,6 +24,8 @@ class TripRequest(BaseModel):
     accommodation: str = Field(..., description="住宿偏好", example="经济型酒店")
     preferences: List[str] = Field(default=[], description="旅行偏好标签", example=["历史文化", "美食"])
     free_text_input: Optional[str] = Field(default="", description="额外要求", example="希望多安排一些博物馆")
+    travelers: int = Field(default=1, ge=1, le=20, description="出行人数", example=2)
+    budget_limit: Optional[int] = Field(default=None, ge=0, description="全程总预算上限(人民币,全部出行人合计)", example=5000)
     language: Optional[str] = Field(default="zh", description="输出语言(zh/en/ja)", example="en")
     user_id: Optional[str] = Field(default="", description="用户唯一标识(前端生成,用于记忆库)")
 
@@ -177,6 +179,8 @@ class TripPlan(BaseModel):
     weather_info: List[WeatherInfo] = Field(default=[], description="天气信息")
     overall_suggestions: str = Field(..., description="总体建议")
     budget: Optional[Budget] = Field(default=None, description="预算信息")
+    travelers: int = Field(default=1, ge=1, description="出行人数(预算按全部出行人合计)")
+    budget_limit: Optional[int] = Field(default=None, description="用户设定的总预算上限(人民币)")
 
 
 # ============ 知识图谱数据模型 ============

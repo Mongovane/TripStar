@@ -145,7 +145,12 @@
       "elapsed": "経過時間",
       "planningLong": "旅程全体を編成中 — 最も時間のかかるステップです。もう少々お待ちください…",
       "finished": "準備完了 — 旅程を開いています…",
-      "failed": "生成が中断されました"
+      "failed": "生成が中断されました",
+      "errorTitle": "プランを作成できませんでした",
+      "errorHint": "入力内容はそのまま残っています。すぐに再試行するか、戻って修正してください。",
+      "retry": "もう一度作成",
+      "backToEdit": "条件を修正",
+      "errorDetail": "原因"
     },
     "messages": {
       "travelDaysTooLong": "旅行日数は 30 日以内にしてください",
@@ -154,7 +159,12 @@
       "generateSuccess": "旅行プランの生成に成功しました!",
       "generateFailed": "生成に失敗しました",
       "generateRetry": "旅行プランの生成に失敗しました。しばらくして再試行してください"
-    }
+    },
+    "travelersLabel": "人数",
+    "travelersUnit": "名",
+    "budgetLimitLabel": "総予算の上限（人民元・任意）",
+    "budgetLimitPlaceholder": "上限なし",
+    "pastDateNotAllowed": "出発日に過去の日付は選べません"
   },
   "result": {
     "backHome": "ホームへ戻る",
@@ -205,7 +215,11 @@
       "restore": "復元",
       "editPrice": "価格を編集",
       "editPrompt": "「{name}」の新しい価格を入力してください（現在 ¥{amount}）：",
-      "editConfirm": "「{name}」の価格を ¥{amount} に変更しますか？"
+      "editConfirm": "「{name}」の価格を ¥{amount} に変更しますか？",
+      "perPerson": "1人あたり",
+      "travelersNote": "{n} 名分の合計",
+      "overLimit": "予算上限を ¥{over} 超えています",
+      "withinLimit": "予算上限 ¥{limit}、残り ¥{left}"
     },
     "mapTitle": "観光地マップ",
     "refreshMap": "地図を更新",
@@ -248,7 +262,9 @@
       "placeholder": "あひるに旅程のことを聞く…",
       "send": "送信",
       "replyFallback": "申し訳ありません。返信を取得できませんでした。後でもう一度お試しください",
-      "networkError": "ネットワーク接続に問題があります。バックエンドが起動しているか確認してください"
+      "networkError": "ネットワーク接続に問題があります。バックエンドが起動しているか確認してください",
+      "thinking": "考え中…",
+      "clear": "会話をクリア"
     },
     "messages": {
       "enterEditMode": "編集モードに入りました",
@@ -267,7 +283,17 @@
       "pdfSuccess": "PDF のエクスポートに成功しました!",
       "pdfFailed": "PDF のエクスポートに失敗しました: {error}",
       "mapLoaded": "地図の読み込みに成功しました",
-      "mapLoadFailed": "地図の読み込みに失敗しました"
+      "mapLoadFailed": "地図の読み込みに失敗しました",
+      "saveFailed": "保存に失敗しました",
+      "saveFailedDetail": "保存に失敗しました：{error}。編集内容はこのページに残っているので、後でもう一度保存してください。",
+      "savedLocalOnly": "このタブ内にのみ保存しました（プラン ID がないため同期できません）",
+      "saving": "保存中…",
+      "attractionAdded": "「{name}」を追加しました",
+      "locationNotFound": "「{name}」を追加しましたが、位置が見つからないため地図には表示されません",
+      "attractionMoved": "{day} 日目に移動しました",
+      "undo": "元に戻す",
+      "attractionRestored": "「{name}」を元に戻しました",
+      "attractionDeletedName": "「{name}」を削除しました"
     },
     "graph": {
       "type": "種類",
@@ -347,6 +373,58 @@
     "imageLoadFailed": "画像の読み込みに失敗しました",
     "mapInfo": {
       "dayAttraction": "{day} 日目 スポット {index}"
+    },
+    "moveUp": "上へ",
+    "moveDown": "下へ",
+    "moveToDay": "移動先",
+    "backTop": "トップへ",
+    "reservationRequired": "事前予約が必要",
+    "navigate": "ナビ",
+    "askAI": "AI に質問",
+    "scheduleNote": "時間は目安です：{start} 出発、各スポット間の移動に {gap} 分を見込んでいます",
+    "addAttraction": "スポットを追加",
+    "addAttractionTitle": "{day} 日目にスポットを追加",
+    "fieldName": "スポット名",
+    "nameRequired": "スポット名を入力してください",
+    "locating": "位置を検索中…",
+    "summary": {
+      "dates": "日程",
+      "duration": "{days} 日間",
+      "cities": "都市",
+      "total": "概算総額",
+      "perPerson": "1人あたり ¥{amount}",
+      "travelers": "{n} 名",
+      "reservations": "要予約",
+      "reservationCount": "{n} 件",
+      "noReservation": "なし",
+      "suggestionsTitle": "旅のアドバイス",
+      "viewReservations": "要予約スポットを見る"
     }
+  },
+  "buddy": {
+    "quacks": [
+      "ガーガー!",
+      "クワッ!",
+      "グワッ～"
+    ],
+    "hints": [
+      "タップしてお話ししよう 🐤",
+      "質問があればどうぞ",
+      "旅程のこと聞いてね 🗺️"
+    ],
+    "quips": [
+      "傘を忘れずに ☔",
+      "水分補給してね~",
+      "いいスポット!",
+      "日焼け止めを 🧴",
+      "写真を撮ろう 📸",
+      "ちょっと疲れた~",
+      "楽しんでね!"
+    ],
+    "greet": "やあ！タップして旅程の話をしよう 🐤",
+    "spin": "わーい~ 🌀",
+    "sleep": "すやすや…",
+    "hide": "アヒルを隠す",
+    "show": "アヒルを表示"
   }
 }

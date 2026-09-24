@@ -145,7 +145,12 @@
       "elapsed": "已用时",
       "planningLong": "正在编排完整行程，这一步最耗时，请再稍候…",
       "finished": "全部就绪，正在打开你的行程…",
-      "failed": "生成中断"
+      "failed": "生成中断",
+      "errorTitle": "这次没有生成成功",
+      "errorHint": "表单内容都还在，可以直接重试，或返回修改后再试。",
+      "retry": "重新生成",
+      "backToEdit": "返回修改",
+      "errorDetail": "失败原因"
     },
     "messages": {
       "travelDaysTooLong": "旅行天数不能超过 30 天",
@@ -154,7 +159,12 @@
       "generateSuccess": "旅行计划生成成功!",
       "generateFailed": "生成失败",
       "generateRetry": "生成旅行计划失败，请稍后重试"
-    }
+    },
+    "travelersLabel": "出行人数",
+    "travelersUnit": "人",
+    "budgetLimitLabel": "总预算上限（元，可不填）",
+    "budgetLimitPlaceholder": "不限",
+    "pastDateNotAllowed": "出发日期不能早于今天"
   },
   "result": {
     "backHome": "返回首页",
@@ -205,7 +215,11 @@
       "restore": "复原",
       "editPrice": "编辑价格",
       "editPrompt": "请输入「{name}」的新价格（当前 ¥{amount}）：",
-      "editConfirm": "确认将「{name}」价格改为 ¥{amount} 吗？"
+      "editConfirm": "确认将「{name}」价格改为 ¥{amount} 吗？",
+      "perPerson": "人均",
+      "travelersNote": "{n} 人合计",
+      "overLimit": "超出预算上限 ¥{over}",
+      "withinLimit": "预算上限 ¥{limit}，还剩 ¥{left}"
     },
     "mapTitle": "景点地图",
     "refreshMap": "刷新地图",
@@ -248,7 +262,9 @@
       "placeholder": "问问小鸭关于行程的事…",
       "send": "发送",
       "replyFallback": "抱歉，未能获取回复，请稍后再试",
-      "networkError": "网络连接异常，请检查后端服务是否已启动"
+      "networkError": "网络连接异常，请检查后端服务是否已启动",
+      "thinking": "小鸭正在想…",
+      "clear": "清空对话"
     },
     "messages": {
       "enterEditMode": "进入编辑模式",
@@ -267,7 +283,17 @@
       "pdfSuccess": "PDF 导出成功!",
       "pdfFailed": "导出 PDF 失败: {error}",
       "mapLoaded": "地图加载成功",
-      "mapLoadFailed": "地图加载失败"
+      "mapLoadFailed": "地图加载失败",
+      "saveFailed": "保存失败",
+      "saveFailedDetail": "保存失败：{error}。修改仍保留在当前页面，可以稍后再点保存。",
+      "savedLocalOnly": "修改已保存在当前标签页（该行程没有编号，无法同步到服务器）",
+      "saving": "正在保存…",
+      "attractionAdded": "已添加「{name}」",
+      "locationNotFound": "已添加「{name}」，但没查到坐标，地图上不会显示它",
+      "attractionMoved": "已移到第 {day} 天",
+      "undo": "撤销",
+      "attractionRestored": "已恢复「{name}」",
+      "attractionDeletedName": "已删除「{name}」"
     },
     "graph": {
       "type": "类型",
@@ -347,6 +373,60 @@
     "imageLoadFailed": "图片加载失败",
     "mapInfo": {
       "dayAttraction": "第 {day} 天 景点 {index}"
+    },
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "moveToDay": "移到",
+    "backTop": "回到顶部",
+    "reservationRequired": "需提前预约",
+    "navigate": "导航",
+    "askAI": "问 AI",
+    "scheduleNote": "时段为估算：从 {start} 出发，每两站之间预留 {gap} 分钟交通",
+    "addAttraction": "添加景点",
+    "addAttractionTitle": "添加景点到第 {day} 天",
+    "fieldName": "景点名称",
+    "nameRequired": "请填写景点名称",
+    "locating": "正在查询位置…",
+    "summary": {
+      "dates": "日期",
+      "duration": "{days} 天",
+      "cities": "城市",
+      "total": "预估总费用",
+      "perPerson": "人均 ¥{amount}",
+      "travelers": "{n} 人",
+      "reservations": "需预约",
+      "reservationCount": "{n} 处",
+      "noReservation": "无",
+      "suggestionsTitle": "出行建议",
+      "viewReservations": "查看需预约景点"
     }
+  },
+  "buddy": {
+    "quacks": [
+      "嘎嘎～",
+      "咕咕！",
+      "呱！",
+      "嘎!",
+      "咕嘎咕嘎～"
+    ],
+    "hints": [
+      "点我陪你聊 🐤",
+      "嘎~ 有问题问我",
+      "点我唠唠行程 🗺️"
+    ],
+    "quips": [
+      "带好雨伞哦 ☔",
+      "多喝水呀~",
+      "这一站不错!",
+      "记得防晒 🧴",
+      "别忘了拍照 📸",
+      "嘎~ 走累啦",
+      "玩得开心呀!"
+    ],
+    "greet": "嗨，我在这儿！点我聊聊行程 🐤",
+    "spin": "嘎哈哈~ 🌀",
+    "sleep": "呼…呼…",
+    "hide": "收起小鸭",
+    "show": "显示小鸭"
   }
 }

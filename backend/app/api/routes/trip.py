@@ -10,9 +10,10 @@ from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel, Field, ValidationError
 
 from ...agents.trip_planner_agent import get_trip_planner_agent
-from ...models.schemas import TripPlanResponse, TripRequest
+from ...models.schemas import TripPlan, TripPlanResponse, TripRequest
 from ...services.knowledge_graph_service import build_knowledge_graph
 
 router = APIRouter(prefix="/trip", tags=["旅行规划"])
@@ -367,6 +368,13 @@ async def _run_trip_planning(task_id: str, request: TripRequest):
 
         trip_plan = await agent.plan_trip(request, progress_callback=progress_callback)
 
+        # 记录预算口径，结果页据此显示人均与预算上限
+        try:
+            trip_plan.travelers = request.travelers or 1
+            trip_plan.budget_limit = request.budget_limit
+        except Exception:
+            pass
+
         # 异步提取用户偏好到记忆库（不阻塞主流程）
         _user_id = (getattr(request, "user_id", "") or "").strip()
         if _user_id and os.getenv("ENABLE_USER_MEMORY", "false").lower() == "true":
@@ -474,6 +482,50 @@ async def trip_task_ws(websocket: WebSocket, task_id: str):
             await websocket.close()
         except Exception:
             pass
+
+
+class TripPlanUpdatePayload(BaseModel):
+    """结果页保存修改时提交的完整行程。"""
+
+    data: Dict[str, Any] = Field(..., description="修改后的 TripPlan")
+
+
+@router.put(
+    "/plan/{plan_id}",
+    summary="保存行程修改",
+    description="用户在结果页编辑行程后，将修改写回持久化存储，使历史记录、新标签页和分享链接都能看到最新版本",
+)
+async def update_trip_plan(plan_id: str, payload: TripPlanUpdatePayload):
+    task = _get_task(plan_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="行程不存在")
+    if task.get("status") != "completed":
+        raise HTTPException(status_code=409, detail="行程尚未生成完成，暂时不能保存修改")
+
+    try:
+        plan = TripPlan.model_validate(payload.data)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=f"行程数据格式不正确: {e.errors()[:3]}") from e
+
+    result = _serialize_result(task.get("result")) or {}
+    result["data"] = plan.model_dump(mode="json")
+    result["plan_id"] = plan_id
+    request_payload = task.get("request_payload") or {}
+    try:
+        result["graph_data"] = _serialize_result(
+            build_knowledge_graph(plan, language=request_payload.get("language") or "zh")
+        )
+    except Exception as e:  # 图谱失败不影响保存
+        print(f"⚠️  重建知识图谱失败: {e}")
+
+    task["result"] = result
+    _persist_task_state(plan_id, task)
+    return {
+        "success": True,
+        "message": "行程已保存",
+        "plan_id": plan_id,
+        "updated_at": datetime.now().isoformat(),
+    }
 
 
 @router.get(

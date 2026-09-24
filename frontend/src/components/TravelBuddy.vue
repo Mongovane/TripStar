@@ -8,7 +8,12 @@
     @pointerenter="onHover"
     @dblclick="onDblClick"
     @click.stop
+    role="button"
+    tabindex="0"
+    :aria-label="t('result.askAI')"
+    @keydown.enter.prevent="emit('open')"
   >
+    <button type="button" class="tb-hide" :title="t('buddy.hide')" :aria-label="t('buddy.hide')" @pointerdown.stop @pointerup.stop @click="onHide">×</button>
     <div class="tb-bubble" :class="{ show: bubbleShow }">{{ bubbleText }}</div>
     <div class="tb-zzz" v-if="sleeping">z<span>z</span><span>z</span></div>
     <div class="tb-flip">
@@ -43,40 +48,54 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-const emit = defineEmits<{ (e: 'open'): void }>()
+const emit = defineEmits<{ (e: 'open'): void; (e: 'hide'): void }>()
+const { t, tm, rt } = useI18n()
 
 const rootRef = ref<HTMLElement | null>(null)
 const isWalking = ref(false)
 const sleeping = ref(false)
 const happy = ref(false)
-const facing = ref(1)
+const facing = ref(-1)
 const bubbleShow = ref(false)
 const bubbleText = ref('')
+const spinning = ref(false)
+
+// ── 停靠区：小鸭只在右下角一小块区域里活动，不再跟随页面点击，避免挡住内容 ──
+const DOCK_RIGHT = 20      // 距右边缘
+const DOCK_BOTTOM = 132    // 脚底距下边缘（在"问 AI"按钮上方）
+const WANDER_RANGE = 90    // 在停靠点左侧最多溜达的距离
 
 let W = window.innerWidth, H = window.innerHeight
-let x = W / 2, y = H * 0.62, tx = x, ty = y
+const dockX = () => W - DOCK_RIGHT - 41
+const dockY = () => H - DOCK_BOTTOM
+let x = dockX(), y = dockY(), tx = x, ty = y
 let rafId = 0
 let lastStep = 0
 let lastT = 0
 let napTimer = 0
 let blinkTimer = 0
 let bubbleTimer = 0
-// pointer (tap vs drag)
+let quipTimer = 0
+let wanderTimer = 0
+let hintCooldownUntil = 0
 let downX = 0, downY = 0, downT = 0
 
-const quacks = ['嘎嘎～', '咕咕！', '呱！', '嘎!', '咕嘎咕嘎～']
-const hints = ['点我陪你聊 🐤', '嘎~ 有问题问我', '点我唠唠行程 🗺️']
-const idleQuips = ['带好雨伞哦 ☔', '多喝水呀~', '这一站不错!', '记得防晒 🧴', '别忘了拍照 📸', '嘎~ 走累啦', '玩得开心呀!']
-const spinning = ref(false)
-let hintCooldownUntil = 0
-let quipTimer = 0
+const pick = (key: string): string => {
+  const list = tm(key) as unknown[]
+  if (!Array.isArray(list) || list.length === 0) return ''
+  return rt(list[Math.floor(Math.random() * list.length)] as any)
+}
+
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 function place() {
   if (rootRef.value) rootRef.value.style.transform = `translate(${x - 41}px, ${y - 88}px)`
 }
 
 function say(text: string, ms = 1400) {
+  if (!text) return
   bubbleText.value = text
   bubbleShow.value = true
   clearTimeout(bubbleTimer)
@@ -84,13 +103,13 @@ function say(text: string, ms = 1400) {
 }
 
 function wake() {
-  if (sleeping.value) { sleeping.value = false; say('嗯？我醒啦～', 1200) }
+  if (sleeping.value) sleeping.value = false
   clearTimeout(napTimer)
 }
 
 function scheduleNap() {
   clearTimeout(napTimer)
-  napTimer = window.setTimeout(() => { sleeping.value = true; say('呼…呼…💤', 1600) }, 11000)
+  napTimer = window.setTimeout(() => { sleeping.value = true; say(t('buddy.sleep'), 1600) }, 20000)
 }
 
 function ensureLoop() {
@@ -107,29 +126,17 @@ function footprint() {
   window.setTimeout(() => s.remove(), 900)
 }
 
-function ripple(px: number, py: number) {
-  const r = document.createElement('div')
-  r.className = 'tb-ripple'
-  r.style.left = `${px}px`; r.style.top = `${py}px`
-  document.body.appendChild(r)
-  window.setTimeout(() => r.remove(), 520)
-}
-
-// 点页面任意位置 → 走过去（排除小鸭自己、聊天面板、以及各类交互控件，避免干扰操作）
-function onDocClick(e: MouseEvent) {
-  const target = e.target as HTMLElement
-  if (!target || !target.closest) return
-  if (target.closest(
-    '#travel-buddy, .ai-chat-floating, button, a, input, textarea, select, ' +
-    '.ant-btn, .ant-select, .ant-menu, .ant-picker, .ant-input, ' +
-    '.atlas-wrap, #amap-container, #google-map-container, .map-card, .kg, ' +
-    '.top-switch-menu, .top-switch-actions, .landing-navbar, [role="button"], [role="tab"]'
-  )) return
-  tx = Math.max(34, Math.min(W - 34, e.clientX))
-  ty = Math.max(H * 0.24, Math.min(H - 30, e.clientY))
-  ripple(e.clientX, e.clientY)
-  wake()
-  ensureLoop()
+// 偶尔在停靠区里挪几步，保留"活着"的感觉，但永远不会走进内容区
+function scheduleWander() {
+  clearTimeout(wanderTimer)
+  wanderTimer = window.setTimeout(() => {
+    if (!sleeping.value && !reducedMotion()) {
+      tx = dockX() - Math.random() * WANDER_RANGE
+      ty = dockY()
+      ensureLoop()
+    }
+    scheduleWander()
+  }, 9000 + Math.random() * 8000)
 }
 
 function onPointerDown(e: PointerEvent) {
@@ -138,41 +145,44 @@ function onPointerDown(e: PointerEvent) {
 function onPointerUp(e: PointerEvent) {
   const dist = Math.hypot(e.clientX - downX, e.clientY - downY)
   const dt = performance.now() - downT
+  wake()
+  happy.value = false; requestAnimationFrame(() => { happy.value = true })
   if (dist < 8 && dt < 400) {
-    // 轻点 → 打开 AI 聊天
-    wake()
-    happy.value = false; requestAnimationFrame(() => { happy.value = true })
-    emit('open')
+    emit('open') // 轻点 → 打开 AI 聊天
   } else {
-    // 拖它 → 卖萌叫
-    wake()
-    say(quacks[Math.floor(Math.random() * quacks.length)], 1200)
-    happy.value = false; requestAnimationFrame(() => { happy.value = true })
+    say(pick('buddy.quacks'), 1200)
   }
   scheduleNap()
 }
 
-// 悬停 → 提示可点开聊天（限频，避免频繁弹）
 function onHover() {
   if (isWalking.value || sleeping.value) return
   const now = performance.now()
   if (now < hintCooldownUntil) return
   hintCooldownUntil = now + 9000
-  say(hints[Math.floor(Math.random() * hints.length)], 1600)
+  say(pick('buddy.hints'), 1600)
 }
 
-// 双击 → 开心转个圈
 function onDblClick(e: MouseEvent) {
   e.stopPropagation()
   wake()
   spinning.value = false
   requestAnimationFrame(() => { spinning.value = true })
-  say('嘎哈哈~ 🌀', 1200)
+  say(t('buddy.spin'), 1200)
   setTimeout(() => { spinning.value = false }, 720)
   scheduleNap()
 }
 
-function onResize() { W = window.innerWidth; H = window.innerHeight }
+function onHide(e: Event) {
+  e.stopPropagation()
+  emit('hide')
+}
+
+function onResize() {
+  W = window.innerWidth; H = window.innerHeight
+  x = tx = dockX(); y = ty = dockY()
+  place()
+}
 
 function loop(now?: number) {
   const ts = now ?? performance.now()
@@ -180,49 +190,45 @@ function loop(now?: number) {
   lastT = ts
   const dx = tx - x, dy = ty - y, d = Math.hypot(dx, dy)
   if (d > 2 && !sleeping.value) {
-    const step = Math.min(0.19 * dt, d) // 恒定 ~190 px/秒，与帧率无关
+    const step = Math.min(0.08 * dt, d) // 慢悠悠 ~80 px/秒
     x += (dx / d) * step; y += (dy / d) * step
     if (Math.abs(dx) > 0.6) { const nf = dx < 0 ? -1 : 1; if (nf !== facing.value) facing.value = nf }
     isWalking.value = true
-    if (ts - lastStep > 200) { footprint(); lastStep = ts }
+    if (ts - lastStep > 260) { footprint(); lastStep = ts }
     place()
     rafId = requestAnimationFrame(loop)
   } else {
-    // 到达/静止：停掉动画循环，交给计时器打盹（不再逐帧空转）
     isWalking.value = false
     place()
     rafId = 0
     lastT = 0
-    if (!sleeping.value) scheduleNap()
   }
 }
 
 onMounted(() => {
   place()
-  document.addEventListener('click', onDocClick)
   window.addEventListener('resize', onResize)
-  // 眨眼
   blinkTimer = window.setInterval(() => {
     if (sleeping.value || !rootRef.value) return
     if (Math.random() < 0.6) { rootRef.value.classList.add('blink'); window.setTimeout(() => rootRef.value && rootRef.value.classList.remove('blink'), 130) }
   }, 2600)
   scheduleNap()
-  window.setTimeout(() => say('嗨，我陪你逛！点我聊聊 🐤', 2400), 800)
-  // 闲时偶尔冒一句俏皮话
+  scheduleWander()
+  window.setTimeout(() => say(t('buddy.greet'), 2600), 800)
   quipTimer = window.setInterval(() => {
     if (isWalking.value || sleeping.value || bubbleShow.value) return
-    if (Math.random() < 0.35) say(idleQuips[Math.floor(Math.random() * idleQuips.length)], 1800)
-  }, 24000)
+    if (Math.random() < 0.3) say(pick('buddy.quips'), 1800)
+  }, 30000)
 })
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(rafId)
   rafId = 0
-  document.removeEventListener('click', onDocClick)
   window.removeEventListener('resize', onResize)
   clearInterval(blinkTimer)
   clearInterval(quipTimer)
   clearTimeout(bubbleTimer)
+  clearTimeout(wanderTimer)
   clearTimeout(napTimer)
 })
 </script>
@@ -234,6 +240,16 @@ onBeforeUnmount(() => {
   transform-origin: 50% 100%; will-change: transform; touch-action: none;
   user-select: none; -webkit-user-select: none;
 }
+.tb-hide {
+  position: absolute; right: 2px; top: 4px; z-index: 2;
+  width: 20px; height: 20px; border-radius: 50%; padding: 0;
+  border: 1px solid rgba(36,29,24,.18); background: #FBF7EE; color: #6B5C4C;
+  font-size: 13px; line-height: 17px; cursor: pointer;
+  opacity: 0; transition: opacity .15s ease;
+}
+#travel-buddy:hover .tb-hide, #travel-buddy:focus-within .tb-hide { opacity: 1; }
+@media (hover: none) { .tb-hide { opacity: .85; } }
+#travel-buddy:focus-visible { outline: 2px solid #C0562A; outline-offset: 4px; border-radius: 12px; }
 .tb-flip { transform-origin: 50% 50%; transition: transform .18s ease; }
 #travel-buddy.face-left .tb-flip { transform: scaleX(-1); }
 
@@ -261,13 +277,13 @@ onBeforeUnmount(() => {
 @keyframes tb-spin { 0% { transform: rotate(0) scale(1); } 55% { transform: rotate(300deg) scale(1.12); } 100% { transform: rotate(360deg) scale(1); } }
 
 .tb-bubble {
-  position: absolute; left: 50%; top: -12px; transform: translate(-50%,-100%) scale(0); transform-origin: bottom center;
+  position: absolute; right: 6px; top: -12px; transform: translateY(-100%) scale(0); transform-origin: bottom right;
   background: #FBF7EE; border: 1px solid rgba(36,29,24,.16); color: #241D18;
   font-family: 'Newsreader', Georgia, serif; font-weight: 600; font-size: 14px; padding: 5px 12px; border-radius: 14px; white-space: nowrap;
   box-shadow: 0 8px 20px -10px rgba(36,29,24,.5); transition: transform .22s cubic-bezier(.34,1.56,.64,1); pointer-events: none;
 }
-.tb-bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #FBF7EE; }
-.tb-bubble.show { transform: translate(-50%,-100%) scale(1); }
+.tb-bubble::after { content: ''; position: absolute; right: 26px; bottom: -6px; border: 6px solid transparent; border-top-color: #FBF7EE; }
+.tb-bubble.show { transform: translateY(-100%) scale(1); }
 
 .tb-zzz { position: absolute; right: -2px; top: -6px; font-family: 'Newsreader', serif; font-style: italic; color: var(--rust, #C0562A); pointer-events: none; }
 .tb-zzz { animation: tb-zzz 2.4s ease-in-out infinite; }

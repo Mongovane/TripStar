@@ -665,7 +665,13 @@ class MultiAgentTripPlanner:
 - 交通方式: {request.transportation}
 - 住宿: {request.accommodation}
 - 偏好: {', '.join(request.preferences) if request.preferences else '无'}
+- 出行人数: {getattr(request, 'travelers', 1) or 1}人
 """
+        _travelers = getattr(request, 'travelers', 1) or 1
+        _budget_limit = getattr(request, 'budget_limit', None)
+        if _budget_limit:
+            query += f"- 总预算上限: {_budget_limit}元(全部出行人合计)，请在该预算内安排酒店、餐饮与景点，确实无法满足时在 overall_suggestions 中说明超出原因\n"
+        query += f"- 预算口径: budget 中所有金额均为 {_travelers} 人合计的人民币金额；门票、餐饮按人数计算，酒店按所需房间数计算；境外目的地也请统一换算为人民币\n"
         if memory_snippet:
             query += f"""
 {memory_snippet}

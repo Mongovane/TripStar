@@ -93,7 +93,14 @@
           ref="panelRef"
           :style="{ minHeight: panelHeight === 'auto' ? 'auto' : panelHeight + 'px' }"
         >
-          <a-form v-show="!loading" :model="formData" layout="vertical" @finish="handleSubmit">
+          <a-form
+            v-show="!loading"
+            ref="antFormRef"
+            :model="formData"
+            layout="vertical"
+            :scroll-to-first-error="{ behavior: 'smooth', block: 'center' }"
+            @finish="handleSubmit"
+          >
             <!-- step 1 -->
             <div class="sa-step">
               <div class="sa-step-head">
@@ -103,7 +110,11 @@
 
               <div class="sa-city-list">
                 <div v-for="(cs, idx) in formData.cities" :key="idx" class="sa-city-row">
-                  <a-form-item class="sa-city-name" :rules="[{ required: true, message: t('home.cityRequired') }]">
+                  <a-form-item
+                    class="sa-city-name"
+                    :name="['cities', idx, 'city']"
+                    :rules="[{ required: true, whitespace: true, message: t('home.cityRequired') }]"
+                  >
                     <template #label>
                       <span class="sa-field-label">{{ t('home.cityNLabel', { n: idx + 1 }) }}</span>
                     </template>
@@ -141,6 +152,7 @@
                     style="width: 100%"
                     size="large"
                     :placeholder="t('home.startDatePlaceholder')"
+                    :disabled-date="isPastDate"
                   />
                 </a-form-item>
 
@@ -188,6 +200,38 @@
                 </a-form-item>
               </div>
 
+              <div class="sa-grid sa-grid2">
+                <a-form-item name="travelers">
+                  <template #label>
+                    <span class="sa-field-label">{{ t('home.travelersLabel') }}</span>
+                  </template>
+                  <a-input-number
+                    v-model:value="formData.travelers"
+                    :min="1"
+                    :max="20"
+                    :precision="0"
+                    size="large"
+                    style="width: 100%"
+                    :addon-after="t('home.travelersUnit')"
+                  />
+                </a-form-item>
+                <a-form-item name="budget_limit">
+                  <template #label>
+                    <span class="sa-field-label">{{ t('home.budgetLimitLabel') }}</span>
+                  </template>
+                  <a-input-number
+                    v-model:value="formData.budget_limit"
+                    :min="0"
+                    :step="500"
+                    :precision="0"
+                    size="large"
+                    style="width: 100%"
+                    :placeholder="t('home.budgetLimitPlaceholder')"
+                    addon-before="¥"
+                  />
+                </a-form-item>
+              </div>
+
               <a-form-item name="preferences">
                 <template #label>
                   <span class="sa-field-label">{{ t('home.interestsLabel') }}</span>
@@ -232,7 +276,7 @@
           </a-form>
 
           <!-- constellation loading stepper -->
-          <div v-show="loading" class="sa-stepper">
+          <div v-show="loading" class="sa-stepper" :class="{ failed: !!loadError }">
             <div class="sa-stepper-head">
               <h2 class="sa-stepper-title">{{ t('home.loading.planCode', { code: planCode }) }}</h2>
               <div class="sa-stepper-metrics">
@@ -282,7 +326,16 @@
               </div>
             </div>
 
-            <div class="sa-stepper-foot">
+            <div v-if="loadError" class="sa-error" role="alert">
+              <h3 class="sa-error-title">{{ t('home.loading.errorTitle') }}</h3>
+              <p class="sa-error-reason"><span>{{ t('home.loading.errorDetail') }}：</span>{{ loadError }}</p>
+              <p class="sa-error-hint">{{ t('home.loading.errorHint') }}</p>
+              <div class="sa-error-actions">
+                <button type="button" class="sa-btn sa-btn-rust" @click="retrySubmit">{{ t('home.loading.retry') }}</button>
+                <button type="button" class="sa-btn sa-btn-ghost" @click="backToForm">{{ t('home.loading.backToEdit') }}</button>
+              </div>
+            </div>
+            <div v-else class="sa-stepper-foot">
               <h3>{{ loadingProgress >= 100 ? t('home.loading.done') : loadingStatus }}</h3>
               <p class="sa-foot-sub">{{ loadingProgress < 100 ? t('home.loading.workingTogether') : t('home.loading.donePrepare') }}</p>
             </div>
@@ -291,7 +344,7 @@
             <div class="sa-activity">
               <div class="sa-activity-head">
                 <span class="sa-activity-title">{{ t('home.loading.activityTitle') }}</span>
-                <span class="sa-activity-dot" :class="{ live: loadingProgress < 100 }"></span>
+                <span class="sa-activity-dot" :class="{ live: loadingProgress < 100 && !loadError }"></span>
               </div>
               <ul class="sa-log" ref="logRef">
                 <li
@@ -308,7 +361,7 @@
                   <span class="sa-log-tx">{{ line.text }}</span>
                 </li>
               </ul>
-              <p v-if="isPlanningLong" class="sa-plateau">{{ t('home.loading.planningLong') }}</p>
+              <p v-if="isPlanningLong && !loadError" class="sa-plateau">{{ t('home.loading.planningLong') }}</p>
             </div>
           </div>
         </div>
@@ -382,7 +435,7 @@ import { generateTripPlan, getTripHistory } from '@/services/api'
 import { getCurrentLocale } from '@/i18n'
 import NavBar from '@/components/NavBar.vue'
 import type { TripFormData, TripTaskEvent, TripHistoryItem, CityStay } from '@/types'
-import type { Dayjs } from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 
 type LandingFormData = {
   cities: Array<{ city: string; days: number }>
@@ -391,6 +444,8 @@ type LandingFormData = {
   accommodation: string
   preferences: string[]
   free_text_input: string
+  travelers: number
+  budget_limit: number | null
 }
 
 const router = useRouter()
@@ -403,6 +458,8 @@ const formRef = ref<HTMLElement | null>(null)
 const panelRef = ref<HTMLElement | null>(null)
 const panelHeight = ref<number | string>('auto')
 const planCode = ref('')
+const antFormRef = ref<any>(null)
+const loadError = ref('')
 const historyLoading = ref(false)
 const historyPlans = ref<TripHistoryItem[]>([])
 
@@ -426,7 +483,7 @@ const elapsedLabel = computed(() => {
 })
 const displayPercent = computed(() => Math.round(smoothPercent.value))
 // 后端在“生成行程”阶段会停在 85% 较久：这里给一句诚实的耐心提示
-const isPlanningLong = computed(() => loading.value && loadingProgress.value >= 85 && loadingProgress.value < 100)
+const isPlanningLong = computed(() => loading.value && !loadError.value && loadingProgress.value >= 85 && loadingProgress.value < 100)
 
 const pushLog = (text: string, kind: 'normal' | 'error' = 'normal') => {
   if (!text) return
@@ -497,7 +554,11 @@ const formData = reactive<LandingFormData>({
   accommodation: '经济型酒店',
   preferences: [],
   free_text_input: '',
+  travelers: 2,
+  budget_limit: null,
 })
+
+const isPastDate = (current: Dayjs) => Boolean(current) && current.isBefore(dayjs(), 'day')
 
 const totalDays = computed(() => formData.cities.reduce((sum, cs) => sum + (cs.days || 1), 0))
 
@@ -571,6 +632,10 @@ const handleSubmit = async () => {
     message.error(t('home.messages.selectDate'))
     return
   }
+  if (isPastDate(formData.start_date)) {
+    message.error(t('home.pastDateNotAllowed'))
+    return
+  }
   if (totalDays.value > 30) {
     message.warning(t('home.messages.travelDaysTooLong'))
     return
@@ -580,6 +645,7 @@ const handleSubmit = async () => {
     panelHeight.value = panelRef.value.offsetHeight
   }
 
+  loadError.value = ''
   loading.value = true
   loadingProgress.value = 5
   loadingStatus.value = t('home.loading.initializing')
@@ -591,6 +657,7 @@ const handleSubmit = async () => {
   pushLog(t('home.loading.initializing'))
   startProgressTimers()
 
+  let succeeded = false
   try {
     sessionStorage.removeItem('tripPlan')
     sessionStorage.removeItem('graphData')
@@ -609,6 +676,8 @@ const handleSubmit = async () => {
       accommodation: formData.accommodation,
       preferences: formData.preferences,
       free_text_input: formData.free_text_input,
+      travelers: formData.travelers || 1,
+      budget_limit: formData.budget_limit || null,
       language: getCurrentLocale(),
     }
 
@@ -628,10 +697,10 @@ const handleSubmit = async () => {
       }
     })
 
-    loadingProgress.value = 100
-    loadingStatus.value = t('home.loading.done')
-
     if (response.success && response.data) {
+      loadingProgress.value = 100
+      loadingStatus.value = t('home.loading.done')
+      succeeded = true
       pushLog(t('home.loading.finished'))
       const last = activityLog.value[activityLog.value.length - 1]
       if (last) last.done = true
@@ -648,36 +717,53 @@ const handleSubmit = async () => {
         }
       }, 500)
     } else {
-      sessionStorage.removeItem('tripPlan')
-      sessionStorage.removeItem('graphData')
-      sessionStorage.removeItem('planId')
-      message.error(response.message || t('home.messages.generateFailed'))
+      failSubmit(response.message || t('home.messages.generateFailed'))
     }
   } catch (error: any) {
-    sessionStorage.removeItem('tripPlan')
-    sessionStorage.removeItem('graphData')
-    sessionStorage.removeItem('planId')
-    message.error(error.message || t('home.messages.generateRetry'))
-    pushLog(error.message || t('home.loading.failed'), 'error')
+    failSubmit(error?.message || t('home.messages.generateRetry'))
   } finally {
     stopProgressTimers()
-    setTimeout(() => {
-      loading.value = false
-      loadingProgress.value = 0
-      loadingStatus.value = ''
-      panelHeight.value = 'auto'
-      activityLog.value = []
-      elapsed.value = 0
-      smoothPercent.value = 0
-    }, 1000)
+    // 只有成功时才收起进度面板；失败时保留错误原因，由用户选择重试或返回修改
+    if (succeeded) {
+      setTimeout(resetLoadingPanel, 1000)
+    }
   }
 }
-</script>
 
-<!-- fonts (global, loaded once) -->
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Mono:wght@400;500&display=swap');
-</style>
+const resetLoadingPanel = () => {
+  loading.value = false
+  loadError.value = ''
+  loadingProgress.value = 0
+  loadingStatus.value = ''
+  panelHeight.value = 'auto'
+  activityLog.value = []
+  elapsed.value = 0
+  smoothPercent.value = 0
+}
+
+const failSubmit = (reason: string) => {
+  sessionStorage.removeItem('tripPlan')
+  sessionStorage.removeItem('graphData')
+  sessionStorage.removeItem('planId')
+  loadError.value = reason
+  pushLog(reason, 'error')
+  // 把仍在转圈的步骤停下来
+  activityLog.value.forEach(line => { if (!line.done && !line.error) line.done = true })
+  const last = activityLog.value[activityLog.value.length - 1]
+  if (last) { last.done = false; last.error = true }
+  panelHeight.value = 'auto'
+}
+
+const retrySubmit = () => {
+  resetLoadingPanel()
+  void handleSubmit()
+}
+
+const backToForm = () => {
+  resetLoadingPanel()
+  nextTick(scrollToForm)
+}
+</script>
 
 <style scoped>
 .landing-page {
@@ -915,6 +1001,21 @@ const handleSubmit = async () => {
 .sa-log-line.err { color: var(--rust-deep); }
 .sa-log-line.err .sa-log-ic { color: var(--rust-deep); }
 .sa-log-spin { width: 11px; height: 11px; border: 2px solid rgba(192,86,42,.25); border-top-color: var(--rust); border-radius: 50%; animation: sa-sp .7s linear infinite; }
+.sa-btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+.sa-btn-ghost:hover { border-color: var(--ink-soft); }
+.sa-error {
+  margin-top: 28px; padding: 18px 20px; text-align: left;
+  border: 1px solid color-mix(in srgb, var(--rust) 35%, transparent);
+  background: color-mix(in srgb, var(--rust) 6%, var(--card));
+  border-radius: 4px;
+}
+.sa-error-title { margin: 0 0 8px; font-family: var(--serif); font-size: 1.2rem; font-weight: 500; color: var(--rust-deep); }
+.sa-error-reason { margin: 0 0 6px; font-size: 14px; color: var(--ink); word-break: break-word; }
+.sa-error-reason span { color: var(--ink-soft); }
+.sa-error-hint { margin: 0 0 14px; font-size: 13px; color: var(--ink-soft); }
+.sa-error-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.sa-stepper.failed .sa-const-line { filter: grayscale(1); opacity: .5; }
+.sa-stepper.failed .sa-spin-sm { animation: none; }
 .sa-plateau { margin: 0; padding: 10px 14px; border-top: 1px dashed var(--line-2); font-size: 12.5px; color: var(--teal); background: color-mix(in srgb, var(--teal) 5%, transparent); }
 @media (prefers-reduced-motion: reduce) { .sa-activity-dot.live, .sa-log-spin { animation: none; } }
 

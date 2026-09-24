@@ -86,6 +86,26 @@ async def search_poi(keywords: str, city: str = "北京"):
 
 
 @router.get(
+    "/geocode",
+    summary="景点地理编码",
+    description="结果页手动添加景点时，根据名称/地址查询经纬度",
+)
+async def geocode_place(name: str, city: str = "", address: str = ""):
+    import asyncio
+    from ...services.map_dispatcher import geocode_unified
+
+    query = (address or name or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="缺少景点名称或地址")
+    try:
+        loc = await asyncio.to_thread(geocode_unified, query, city or "", address_zh=query)
+    except Exception as e:
+        print(f"❌ 地理编码失败: {e}")
+        loc = None
+    return {"success": bool(loc), "data": loc}
+
+
+@router.get(
     "/image",
     summary="代理获取小红书图片",
     description="按景点名从缓存取图（miss 自动重搜新直链并立即下载），或代理白名单内的小红书稳定直链，规避 CDN 防盗链与时效签名（issue #28）"

@@ -145,7 +145,12 @@
       "elapsed": "Elapsed",
       "planningLong": "Arranging the full itinerary — the longest step, hang tight…",
       "finished": "All set — opening your itinerary…",
-      "failed": "Generation interrupted"
+      "failed": "Generation interrupted",
+      "errorTitle": "The plan wasn't generated",
+      "errorHint": "Your answers are still here. Retry now, or go back and adjust them first.",
+      "retry": "Try again",
+      "backToEdit": "Edit request",
+      "errorDetail": "Reason"
     },
     "messages": {
       "travelDaysTooLong": "Trip duration cannot exceed 30 days",
@@ -154,7 +159,12 @@
       "generateSuccess": "Trip plan generated successfully!",
       "generateFailed": "Generation failed",
       "generateRetry": "Failed to generate trip plan, please try again later"
-    }
+    },
+    "travelersLabel": "Travelers",
+    "travelersUnit": "people",
+    "budgetLimitLabel": "Total budget cap (CNY, optional)",
+    "budgetLimitPlaceholder": "No limit",
+    "pastDateNotAllowed": "Start date can't be in the past"
   },
   "result": {
     "backHome": "Back to Home",
@@ -205,7 +215,11 @@
       "restore": "Restore",
       "editPrice": "Edit Price",
       "editPrompt": "Enter a new price for \"{name}\" (current ¥{amount}):",
-      "editConfirm": "Confirm updating \"{name}\" to ¥{amount}?"
+      "editConfirm": "Confirm updating \"{name}\" to ¥{amount}?",
+      "perPerson": "Per person",
+      "travelersNote": "Total for {n}",
+      "overLimit": "¥{over} over your budget cap",
+      "withinLimit": "Budget cap ¥{limit}, ¥{left} left"
     },
     "mapTitle": "Attraction Map",
     "refreshMap": "Refresh Map",
@@ -248,7 +262,9 @@
       "placeholder": "Ask the duckling about your trip…",
       "send": "Send",
       "replyFallback": "Sorry, no reply was received. Please try again later",
-      "networkError": "Network error, please check whether backend service is running"
+      "networkError": "Network error, please check whether backend service is running",
+      "thinking": "Thinking…",
+      "clear": "Clear chat"
     },
     "messages": {
       "enterEditMode": "Entered edit mode",
@@ -267,7 +283,17 @@
       "pdfSuccess": "PDF exported successfully!",
       "pdfFailed": "PDF export failed: {error}",
       "mapLoaded": "Map loaded successfully",
-      "mapLoadFailed": "Failed to load map"
+      "mapLoadFailed": "Failed to load map",
+      "saveFailed": "Couldn't save",
+      "saveFailedDetail": "Couldn't save: {error}. Your edits are still on this page; try saving again later.",
+      "savedLocalOnly": "Saved in this tab only (this plan has no ID, so it can't be synced)",
+      "saving": "Saving…",
+      "attractionAdded": "Added \"{name}\"",
+      "locationNotFound": "Added \"{name}\", but its location wasn't found, so it won't appear on the map",
+      "attractionMoved": "Moved to day {day}",
+      "undo": "Undo",
+      "attractionRestored": "Restored \"{name}\"",
+      "attractionDeletedName": "Removed \"{name}\""
     },
     "graph": {
       "type": "Type",
@@ -347,6 +373,59 @@
     "imageLoadFailed": "Image failed to load",
     "mapInfo": {
       "dayAttraction": "Day {day} Attraction {index}"
+    },
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "moveToDay": "Move to",
+    "backTop": "Back to top",
+    "reservationRequired": "Reservation required",
+    "navigate": "Directions",
+    "askAI": "Ask AI",
+    "scheduleNote": "Times are estimates: starting {start}, with {gap} min of travel between stops",
+    "addAttraction": "Add a place",
+    "addAttractionTitle": "Add a place to day {day}",
+    "fieldName": "Place name",
+    "nameRequired": "Enter a place name",
+    "locating": "Looking up location…",
+    "summary": {
+      "dates": "Dates",
+      "duration": "{days} days",
+      "cities": "Cities",
+      "total": "Estimated total",
+      "perPerson": "¥{amount} per person",
+      "travelers": "{n} travelers",
+      "reservations": "Reservations",
+      "reservationCount": "{n} places",
+      "noReservation": "None",
+      "suggestionsTitle": "Travel tips",
+      "viewReservations": "See places to book"
     }
+  },
+  "buddy": {
+    "quacks": [
+      "Quack!",
+      "Quack quack~",
+      "Honk!",
+      "Quaaack!"
+    ],
+    "hints": [
+      "Tap me to chat 🐤",
+      "Questions? Ask me",
+      "Tap me about your trip 🗺️"
+    ],
+    "quips": [
+      "Pack an umbrella ☔",
+      "Stay hydrated~",
+      "Nice stop!",
+      "Sunscreen! 🧴",
+      "Take photos 📸",
+      "My feet are tired",
+      "Have fun!"
+    ],
+    "greet": "Hi! Tap me to talk about your trip 🐤",
+    "spin": "Wheee~ 🌀",
+    "sleep": "Zzz…",
+    "hide": "Hide duck",
+    "show": "Show duck"
   }
 }
