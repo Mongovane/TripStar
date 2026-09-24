@@ -3129,16 +3129,13 @@ const escapeHtml = (value: unknown): string => {
   display: none !important;
 }
 .gm-style .gm-ui-hover-effect {
-  top: 4px !important;
-  right: 4px !important;
-  width: 26px !important;
-  height: 26px !important;
-  opacity: 0.75;
+  display: none !important;
 }
-.gm-style .gm-ui-hover-effect > span {
-  background-color: var(--ink-soft, #6B5C4C) !important;
-  width: 15px !important;
-  height: 15px !important;
+
+/* 高德底图暖色化：接近 Google 古地图观感。只对底图 canvas 上滤镜，
+   不影响标记/信息窗（它们是 DOM 叠层，在 canvas 之上） */
+#amap-container canvas {
+  filter: sepia(0.42) saturate(1.28) hue-rotate(-6deg) brightness(1.04);
 }
 
 .tripstar-map-marker {
@@ -3190,14 +3187,39 @@ const escapeHtml = (value: unknown): string => {
 }
 
 .tripstar-map-tooltip {
+  position: relative;
   max-width: min(320px, calc(100vw - 40px));
   background: var(--card, #FBF7EE);
   border: 1px solid rgba(36, 29, 24, 0.16);
   border-radius: 6px;
   box-shadow: 0 10px 28px -12px rgba(36, 29, 24, 0.5);
-  padding: 9px 13px;
+  padding: 9px 30px 9px 13px;
   color: var(--ink, #241D18);
   pointer-events: none;
+}
+.tripstar-map-close {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  color: var(--ink-soft, #6B5C4C);
+  background: rgba(36, 29, 24, 0.06);
+  border: 1px solid rgba(36, 29, 24, 0.14);
+  border-radius: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.15s, color 0.15s;
+}
+.tripstar-map-close:hover {
+  background: var(--rust, #C0562A);
+  color: #fff;
+  border-color: var(--rust, #C0562A);
 }
 
 .tripstar-map-tooltip__line {

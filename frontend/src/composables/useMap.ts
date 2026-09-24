@@ -23,6 +23,13 @@ export function useMap(
   const { t, locale } = useI18n()
   const { escapeHtml } = deps
 
+  // 当前打开的信息窗的关闭器（供卡片右上角 × 调用）
+  ;(window as any).__tsMapClose = () => {
+    const fn = (window as any).__tsMapCloseFn
+    if (typeof fn === 'function') { try { fn() } catch (e) { /* noop */ } }
+    ;(window as any).__tsMapCloseFn = null
+  }
+
   // 地图信息窗「复制」按钮的全局处理器
   ;(window as any).__tsMapCopy = (btn: HTMLElement) => {
     const text = (btn?.dataset?.copy || '').replace(/&#10;/g, '\n')
@@ -104,6 +111,7 @@ const buildInfoWindowContent = (attraction: any): string => {
 
   return `
     <div class="tripstar-map-tooltip tripstar-map-tooltip--plain">
+      <button type="button" class="tripstar-map-close" onclick="window.__tsMapClose && window.__tsMapClose()" aria-label="关闭">×</button>
       <p class="tripstar-map-tooltip__line tripstar-map-tooltip__line--title">${name}</p>
       <p class="tripstar-map-tooltip__line">${dayAttractionText}</p>
       <p class="tripstar-map-tooltip__line">${address}</p>
@@ -464,6 +472,7 @@ const addGoogleAttractionMarkers = async (generation: number) => {
     marker.addListener('click', () => {
       googleInfoWindows.forEach((iw) => iw.close())
       infoWindow.open({ anchor: marker, map: googleMap })
+      ;(window as any).__tsMapCloseFn = () => infoWindow.close()
     })
 
     googleMarkers.push(marker)
@@ -652,6 +661,7 @@ const addAttractionMarkers = async (AMap: any) => {
     marker.on('click', () => {
       map.clearInfoWindow && map.clearInfoWindow()
       infoWindow.open(map, marker.getPosition())
+      ;(window as any).__tsMapCloseFn = () => { map.clearInfoWindow && map.clearInfoWindow() }
     })
 
     markers.push(marker)
