@@ -253,7 +253,7 @@
 
         <!-- 知识图谱 -->
         <a-card v-show="activeSection === 'knowledge-graph'" id="knowledge-graph" :bordered="false" class="kg-card section-shellless">
-          <KnowledgeGraph :data="graphData" />
+          <KnowledgeGraph :plan="tripPlan" :get-image="orreryImage" @select-day="goToDayFromOverview" />
         </a-card>
 
         <!-- 每日行程:可折叠 -->
@@ -594,7 +594,7 @@ import OverviewOrrery from '@/components/OverviewOrrery.vue'
 import KnowledgeGraph from '@/components/KnowledgeGraph.vue'
 import AIChat from '@/components/AIChat.vue'
 import TravelBuddy from '@/components/TravelBuddy.vue'
-import type { TripPlan, TripPlanResponse, KnowledgeGraphData, WeatherInfo } from '@/types'
+import type { TripPlan, TripPlanResponse, WeatherInfo } from '@/types'
 import { useBudget } from '@/composables/useBudget'
 import { useMap } from '@/composables/useMap'
 import {
@@ -815,12 +815,9 @@ const overviewAttractions = computed<OverviewAttractionItem[]>(() => {
   return items
 })
 
-// 知识图谱相关
-const graphData = ref<KnowledgeGraphData | null>(null)
-
+// 关系星盘直接由 tripPlan 推导（见 useTripGraph），后端 graph_data 不再参与渲染
 const applyTripPlanPayload = async (payload: {
   plan: TripPlan
-  graph?: KnowledgeGraphData | null
   planId?: string
 }) => {
   tripPlan.value = payload.plan
@@ -833,14 +830,6 @@ const applyTripPlanPayload = async (payload: {
 
   sessionStorage.setItem('tripPlan', JSON.stringify(payload.plan))
 
-  if (payload.graph) {
-    graphData.value = payload.graph
-    sessionStorage.setItem('graphData', JSON.stringify(payload.graph))
-  } else {
-    graphData.value = null
-    sessionStorage.removeItem('graphData')
-  }
-
   await loadAttractionPhotos()
   if (activeSection.value === 'map') await ensureMapReady()
 }
@@ -849,7 +838,6 @@ const restoreTripPlanFromResponse = async (response?: TripPlanResponse | null) =
   if (!response?.data) return false
   await applyTripPlanPayload({
     plan: response.data,
-    graph: response.graph_data || null,
     planId: String(response.plan_id || planId.value || ''),
   })
   return true
@@ -880,10 +868,8 @@ onMounted(async () => {
   const canUseCachedData = Boolean(data) && (!planId.value || !cachedPlanId || cachedPlanId === planId.value)
 
   if (data && canUseCachedData) {
-    const gd = sessionStorage.getItem('graphData')
     await applyTripPlanPayload({
       plan: JSON.parse(data),
-      graph: gd ? JSON.parse(gd) : null,
       planId: planId.value || cachedPlanId,
     })
     return
@@ -2638,35 +2624,6 @@ const escapeHtml = (value: unknown): string => {
 
 .kg-card :deep(.ant-card-body) {
   padding: 0 0 16px 0;
-}
-
-.kg-legend {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 16px;
-  padding: 12px 20px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(6, 8, 14, 0.86);
-  border-radius: 0 0 16px 16px;
-}
-
-.kg-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.kg-legend-dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: inline-block;
-  background-position: center;
-  background-size: contain;
-  background-repeat: no-repeat;
 }
 
 /* 每日行程卡片 */
